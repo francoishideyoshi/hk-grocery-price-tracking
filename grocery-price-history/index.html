@@ -1,0 +1,419 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>HK Grocery Price History</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3"></script>
+<style>
+  :root {
+    --bg: #f7f8fa; --fg: #1a1d21; --muted: #6b7280;
+    --card-bg: #ffffff; --border: #e4e7eb; --hover-bg: #f1f3f5;
+    --accent: #0f766e; --accent-bg-soft: #ccfbf1;
+    --shadow: 0 1px 2px rgba(0,0,0,.05);
+    --green-bg: #dcfce7; --green-fg: #166534;
+    --amber-bg: #fef3c7; --amber-fg: #92400e;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #111418; --fg: #e5e7eb; --muted: #9ca3af;
+      --card-bg: #1a1e24; --border: #2a2f37; --hover-bg: #20252c;
+      --accent: #2dd4bf; --accent-bg-soft: rgba(45,212,191,.15);
+      --shadow: 0 1px 2px rgba(0,0,0,.4);
+      --green-bg: rgba(34,197,94,.18); --green-fg: #86efac;
+      --amber-bg: rgba(245,158,11,.18); --amber-fg: #fcd34d;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+    margin: 0; background: var(--bg); color: var(--fg);
+  }
+  .chip:focus-visible, .item:focus-visible, input:focus-visible, select:focus-visible {
+    outline: 2px solid var(--accent); outline-offset: 2px;
+  }
+
+  .app-header {
+    position: sticky; top: 0; z-index: 10;
+    background: var(--bg); border-bottom: 1px solid var(--border);
+    padding: .75rem 1rem;
+  }
+  .app-header h1 { font-size: 1.2rem; margin: 0 0 .15rem; }
+  .meta { color: var(--muted); font-size: .8rem; margin: 0 0 .6rem; }
+  input[type=search] {
+    width: 100%; max-width: 420px; padding: .5rem .75rem; font-size: .9rem;
+    border: 1px solid var(--border); border-radius: 999px;
+    background: var(--card-bg); color: var(--fg);
+  }
+
+  .layout {
+    display: grid; grid-template-columns: 400px 1fr; gap: 1rem;
+    padding: 1rem; max-width: 1400px; margin: 0 auto;
+  }
+  @media (max-width: 880px) {
+    .layout { grid-template-columns: 1fr; }
+  }
+
+  .sidebar { display: flex; flex-direction: column; gap: 1rem; min-width: 0; }
+  .card {
+    background: var(--card-bg); border: 1px solid var(--border);
+    border-radius: 12px; padding: .75rem; box-shadow: var(--shadow);
+  }
+  .card h2 {
+    font-size: .72rem; text-transform: uppercase; letter-spacing: .04em;
+    font-weight: 600; color: var(--muted); margin: 0 0 .5rem;
+  }
+
+  .chips { display: flex; flex-wrap: wrap; gap: .4rem; }
+  .chip {
+    border: 1px solid var(--border); background: var(--card-bg); color: var(--fg);
+    border-radius: 999px; padding: .3rem .7rem; font-size: .8rem; cursor: pointer;
+  }
+  .chip .count { color: var(--muted); margin-left: .25rem; font-size: .75rem; }
+  .chip.active { background: var(--accent); border-color: var(--accent); color: var(--bg); }
+  .chip.active .count { color: inherit; opacity: .85; }
+
+  select#subcategory {
+    display: block; width: 100%; margin-top: .5rem; padding: .4rem .5rem;
+    border-radius: 8px; border: 1px solid var(--border);
+    background: var(--card-bg); color: var(--fg); font-size: .85rem;
+  }
+  select#subcategory[hidden] { display: none; }
+
+  .result-count { font-size: .75rem; color: var(--muted); margin: 0 0 .5rem; }
+
+  .list { max-height: 420px; overflow-y: auto; display: flex; flex-direction: column; gap: 2px; }
+  .item {
+    display: block; width: 100%; text-align: left; padding: .5rem .6rem;
+    border: 1px solid transparent; border-radius: 8px; background: none;
+    cursor: pointer; font: inherit; color: var(--fg);
+  }
+  .item:hover { background: var(--hover-bg); }
+  .item.selected { border-color: var(--accent); background: var(--accent-bg-soft); }
+  .item-row { display: flex; justify-content: space-between; align-items: flex-start; gap: .5rem; }
+  .item-name { font-weight: 500; font-size: .88rem; }
+  .item-sub { color: var(--muted); font-size: .78rem; margin-top: 1px; }
+  .item-price { font-size: .85rem; font-weight: 500; white-space: nowrap; }
+  .badges { margin-top: .3rem; display: flex; gap: .25rem; flex-wrap: wrap; }
+
+  .drop-item { display: flex; justify-content: space-between; align-items: center; gap: .5rem; }
+  .drop-item small { color: var(--muted); }
+
+  .badge {
+    display: inline-block; padding: 1px 8px; border-radius: 999px;
+    font-size: .7rem; font-weight: 600; white-space: nowrap;
+  }
+  .badge.fake { background: var(--amber-bg); color: var(--amber-fg); }
+  .badge.drop { background: var(--green-bg); color: var(--green-fg); }
+
+  .detail { min-height: 480px; }
+  .detail h2 { margin: 0 0 .1rem; font-size: 1.1rem; }
+  .detail .sub-line { color: var(--muted); font-size: .85rem; margin: 0 0 .75rem; }
+  .detail-empty, .detail-loading, .detail-error {
+    color: var(--muted); text-align: center; padding: 3rem 1rem;
+  }
+  canvas { max-height: 320px; }
+
+  table { width: 100%; border-collapse: collapse; font-size: .85rem; margin-top: .75rem; }
+  th {
+    text-align: left; color: var(--muted); font-weight: 600; font-size: .72rem;
+    text-transform: uppercase; letter-spacing: .03em; padding: .4rem .5rem;
+    border-bottom: 1px solid var(--border);
+  }
+  td { padding: .5rem; border-bottom: 1px solid var(--border); }
+  tbody tr:hover td { background: var(--hover-bg); }
+  th.num, td.num { text-align: right; font-variant-numeric: tabular-nums; }
+  td.promo { max-width: 140px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+  .site-footer { text-align: center; padding: 1.5rem 1rem; font-size: .75rem; color: var(--muted); }
+  .site-footer a { color: var(--muted); }
+</style>
+</head>
+<body>
+<header class="app-header">
+  <h1>HK Grocery Price History</h1>
+  <div class="meta" id="meta">Loading index.json ...</div>
+  <input type="search" id="search" placeholder="Search product name or brand...">
+</header>
+
+<div class="layout">
+  <div class="sidebar">
+    <div class="card">
+      <h2>Categories</h2>
+      <div class="chips" id="chips"></div>
+      <select id="subcategory" hidden></select>
+    </div>
+    <div class="card">
+      <h2>Biggest drops (window-low, &ge;10% below 90-day median)</h2>
+      <div class="list drops-list" id="drops"></div>
+    </div>
+    <div class="card">
+      <h2>Products</h2>
+      <div class="result-count" id="resultCount"></div>
+      <div class="list" id="results"></div>
+    </div>
+  </div>
+  <div class="card detail" id="detail">
+    <div class="detail-empty">Select a product to see its price history.</div>
+  </div>
+</div>
+
+<footer class="site-footer" id="siteFooter"></footer>
+
+<script>
+// ponytail: no build step, no framework — fetch + render, good enough for a prototype.
+// index.json holds search/badge/drop summaries (badges + drops precomputed
+// server-side by backfill.py, since the sparse per-store series needed for
+// that math isn't cheap to fetch for every product in a search list).
+// Top/sub category options are derived client-side from index.json's flattened
+// "Cat1 / Cat2 / Cat3" category strings — no separate category endpoint.
+// products/<code>.json holds one product's sparse series, fetched on click.
+let INDEX = null;
+let selectedCode = null;
+const state = { category: null, subcategory: null, query: '' };
+
+fetch('./index.json').then(r => r.json()).then(d => {
+  INDEX = d;
+  document.getElementById('meta').textContent =
+    `${d.products.length} products, ${d.meta.snapshot_count} snapshots ` +
+    `(${d.meta.window_start} to ${d.meta.window_end})`;
+  document.getElementById('siteFooter').innerHTML =
+    `Source: <a href="${d.meta.source}" target="_blank" rel="noopener">${d.meta.source}</a>`;
+  renderChips();
+  renderSubSelect();
+  applyFilters();
+  renderDrops();
+}).catch(err => {
+  document.getElementById('meta').textContent = 'Failed to load index.json: ' + err;
+});
+
+function badgeSpans(badges) {
+  return badges.map(b => {
+    const [kind, store] = b.split(':');
+    return kind === 'fake'
+      ? `<span class="badge fake">fake discount: ${store}</span>`
+      : `<span class="badge drop">drop: ${store}</span>`;
+  }).join('');
+}
+
+function priceLabel(range) {
+  if (!range) return '';
+  const [lo, hi] = range;
+  return lo === hi ? `$${lo.toFixed(2)}` : `$${lo.toFixed(2)}–$${hi.toFixed(2)}`;
+}
+
+function topCategories() {
+  const counts = new Map();
+  for (const p of INDEX.products) {
+    const top = p.category.split(' / ')[0];
+    counts.set(top, (counts.get(top) || 0) + 1);
+  }
+  return counts;
+}
+
+function subCategories(top) {
+  const counts = new Map();
+  for (const p of INDEX.products) {
+    const parts = p.category.split(' / ');
+    if (parts[0] === top && parts[1]) counts.set(parts[1], (counts.get(parts[1]) || 0) + 1);
+  }
+  return counts;
+}
+
+function makeChip(label, count, active) {
+  const b = document.createElement('button');
+  b.type = 'button';
+  b.className = 'chip' + (active ? ' active' : '');
+  b.innerHTML = `${label} <span class="count">${count}</span>`;
+  return b;
+}
+
+function renderChips() {
+  const el = document.getElementById('chips');
+  el.innerHTML = '';
+  const allChip = makeChip('All', INDEX.products.length, state.category === null);
+  allChip.onclick = () => selectCategory(null);
+  el.appendChild(allChip);
+  const sorted = [...topCategories().entries()].sort((a, b) => b[1] - a[1]);
+  for (const [name, count] of sorted) {
+    const chip = makeChip(name, count, state.category === name);
+    chip.onclick = () => selectCategory(name);
+    el.appendChild(chip);
+  }
+}
+
+function selectCategory(name) {
+  state.category = name;
+  state.subcategory = null;
+  renderChips();
+  renderSubSelect();
+  applyFilters();
+}
+
+function renderSubSelect() {
+  const sel = document.getElementById('subcategory');
+  if (!state.category) {
+    sel.hidden = true;
+    return;
+  }
+  sel.hidden = false;
+  const sorted = [...subCategories(state.category).entries()].sort((a, b) => b[1] - a[1]);
+  sel.innerHTML = '<option value="">All subcategories</option>' +
+    sorted.map(([name, count]) => `<option value="${name}">${name} (${count})</option>`).join('');
+  sel.value = state.subcategory || '';
+}
+
+document.getElementById('subcategory').addEventListener('change', e => {
+  state.subcategory = e.target.value || null;
+  applyFilters();
+});
+
+document.getElementById('search').addEventListener('input', e => {
+  state.query = e.target.value.trim().toLowerCase();
+  applyFilters();
+});
+
+function applyFilters() {
+  if (!INDEX) return;
+  let list = INDEX.products;
+  if (state.category) {
+    list = list.filter(p => p.category.split(' / ')[0] === state.category);
+    if (state.subcategory) {
+      list = list.filter(p => p.category.split(' / ')[1] === state.subcategory);
+    }
+  }
+  if (state.query) {
+    const q = state.query;
+    list = list.filter(p => p.name.toLowerCase().includes(q) || p.brand.toLowerCase().includes(q));
+  }
+  document.getElementById('resultCount').textContent =
+    `Showing ${Math.min(list.length, 200)} of ${list.length} products`;
+  renderResults(list.slice(0, 200));
+}
+
+function renderResults(products) {
+  const el = document.getElementById('results');
+  el.innerHTML = '';
+  for (const p of products) {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'item' + (p.code === selectedCode ? ' selected' : '');
+    btn.innerHTML =
+      `<div class="item-row"><div><div class="item-name">${p.name}</div>` +
+      `<div class="item-sub">${p.brand} &middot; ${p.category}</div></div>` +
+      `<div class="item-price">${priceLabel(p.latest_price_range)}</div></div>` +
+      `<div class="badges">${badgeSpans(p.badges)}</div>`;
+    btn.onclick = () => selectProduct(p, btn);
+    el.appendChild(btn);
+  }
+}
+
+function selectProduct(p, btnEl) {
+  selectedCode = p.code;
+  document.querySelectorAll('.item.selected').forEach(x => x.classList.remove('selected'));
+  if (btnEl) btnEl.classList.add('selected');
+  renderDetail(p);
+  if (window.innerWidth < 880) {
+    document.getElementById('detail').scrollIntoView({ behavior: 'smooth' });
+  }
+}
+
+function renderDrops() {
+  const el = document.getElementById('drops');
+  el.innerHTML = '';
+  for (const d of INDEX.drops.slice(0, 20)) {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'item drop-item';
+    btn.innerHTML = `<span>${d.name} <small>(${d.store})</small></span>` +
+      `<span class="badge drop">-${d.pct.toFixed(0)}% $${d.latest.toFixed(2)}</span>`;
+    btn.onclick = () => {
+      const p = INDEX.products.find(x => x.code === d.code);
+      if (p) selectProduct(p, null);
+    };
+    el.appendChild(btn);
+  }
+  if (!INDEX.drops.length) el.innerHTML = '<div class="item-sub">None this window.</div>';
+}
+
+function median(nums) {
+  const s = [...nums].sort((a, b) => a - b);
+  const mid = Math.floor(s.length / 2);
+  return s.length % 2 ? s[mid] : (s[mid - 1] + s[mid]) / 2;
+}
+
+let chart = null;
+
+async function renderDetail(summary) {
+  const el = document.getElementById('detail');
+  el.innerHTML = `<h2>${summary.name}</h2><p class="sub-line">${summary.brand} &middot; ${summary.category}</p>` +
+    `<div class="detail-loading">Loading price history...</div>`;
+
+  let p;
+  try {
+    p = await fetch(`./products/${summary.code}.json`).then(r => {
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      return r.json();
+    });
+  } catch (err) {
+    el.innerHTML += `<div class="detail-error">Failed to load price history: ${err}</div>`;
+    return;
+  }
+
+  el.innerHTML = `<h2>${p.name}</h2><p class="sub-line">${p.brand} &middot; ${p.category}</p>` +
+    `<canvas id="chart"></canvas><table id="latestTable"></table>`;
+
+  // Series are sparse (a point only when price/promo changed). Extend each
+  // store's line to the product's last confirmed-seen date with a flat
+  // point, so the stepped chart doesn't visually stop at the last change
+  // when the price has simply stayed the same since.
+  const palette = ['#1976d2', '#d32f2f', '#388e3c', '#f57c00', '#7b1fa2', '#00796b', '#c2185b'];
+  const datasets = Object.entries(p.series).map(([sm, series], i) => {
+    const points = series.map(pt => ({ x: Date.parse(pt[0]), y: pt[1], offer: pt[2] }));
+    const last = series[series.length - 1];
+    if (summary.last_seen && last[0] < summary.last_seen) {
+      points.push({ x: Date.parse(summary.last_seen), y: last[1], offer: last[2] });
+    }
+    return {
+      label: sm, data: points, stepped: true,
+      borderColor: palette[i % palette.length], fill: false,
+    };
+  });
+
+  if (chart) chart.destroy();
+  chart = new Chart(document.getElementById('chart'), {
+    type: 'line',
+    data: { datasets },
+    options: {
+      parsing: false,
+      scales: {
+        x: { type: 'time', time: { tooltipFormat: 'yyyy-MM-dd' } },
+        y: { beginAtZero: false },
+      },
+      plugins: {
+        legend: { position: 'bottom' },
+        tooltip: {
+          callbacks: {
+            label: ctx => `${ctx.dataset.label}: $${ctx.parsed.y.toFixed(2)}` +
+              (ctx.raw.offer ? ` — ${ctx.raw.offer}` : ''),
+          },
+        },
+      },
+    },
+  });
+
+  const fake = new Set(summary.badges.filter(b => b.startsWith('fake:')).map(b => b.split(':')[1]));
+  const rows = Object.entries(p.series).map(([sm, series]) => {
+    const latest = series[series.length - 1];
+    const med = median(series.map(pt => pt[1]));
+    const badge = fake.has(sm) ? '<span class="badge fake">fake discount</span>' : '';
+    const offer = latest[2] || '';
+    return `<tr><td>${sm}</td><td class="num">$${latest[1].toFixed(2)}</td><td class="num">$${med.toFixed(2)}</td>` +
+      `<td class="promo" title="${offer}">${offer}</td><td>${badge}</td></tr>`;
+  }).join('');
+  document.getElementById('latestTable').innerHTML =
+    '<tr><th>Chain</th><th class="num">Latest</th><th class="num">Series median</th><th>Offer</th><th></th></tr>' + rows;
+}
+</script>
+</body>
+</html>

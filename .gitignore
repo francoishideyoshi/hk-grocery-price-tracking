@@ -1,0 +1,4 @@
+dist/
+grocery-price-history/index.json
+grocery-price-history/products/
+grocery-price-history/raw-archive/
