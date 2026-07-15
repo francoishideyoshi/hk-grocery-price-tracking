@@ -118,9 +118,9 @@ def normalize_rows(raw_rows: list[dict]) -> list[dict]:
             price = to_price(row.get("Price", ""))
             if not code or price is None:
                 continue
-            category = " / ".join(
+            category = [
                 p for p in (row.get("Category 1"), row.get("Category 2"), row.get("Category 3")) if p
-            )
+            ]
             normalized.append({
                 "code": code,
                 "brand": row.get("Brand", ""),
@@ -135,9 +135,9 @@ def normalize_rows(raw_rows: list[dict]) -> list[dict]:
             code = row.get("Product Code")
             if not code:
                 continue
-            category = " / ".join(
+            category = [
                 p for p in (row.get("Category 1"), row.get("Category 2"), row.get("Category 3")) if p
-            )
+            ]
             for col_name, store_code in WIDE_STORE_COLUMNS.items():
                 price = to_price(row.get(f"Price ({col_name})", ""))
                 if price is None:
