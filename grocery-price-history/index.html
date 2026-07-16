@@ -46,15 +46,18 @@
     background: var(--card-bg); color: var(--fg);
   }
 
-  .layout {
-    display: grid; grid-template-columns: 400px 1fr; gap: 1rem;
-    padding: 1rem; max-width: 1400px; margin: 0 auto;
-  }
-  @media (max-width: 880px) {
-    .layout { grid-template-columns: 1fr; }
+  .filter-bar {
+    display: flex; flex-wrap: wrap; align-items: center; gap: .5rem 1rem;
+    padding: .5rem 1rem; border-bottom: 1px solid var(--border); background: var(--bg);
   }
 
-  .sidebar { display: flex; flex-direction: column; gap: 1rem; min-width: 0; }
+  .layout { display: block; padding: 1rem; max-width: none; }
+
+  .below-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-top: 1rem; }
+  @media (max-width: 880px) {
+    .below-grid { grid-template-columns: 1fr; }
+  }
+
   .card {
     background: var(--card-bg); border: 1px solid var(--border);
     border-radius: 12px; padding: .75rem; box-shadow: var(--shadow);
@@ -73,12 +76,28 @@
   .chip.active { background: var(--accent); border-color: var(--accent); color: var(--bg); }
   .chip.active .count { color: inherit; opacity: .85; }
 
-  .cat-select {
-    display: block; width: 100%; margin-top: .5rem; padding: .4rem .5rem;
-    border-radius: 8px; border: 1px solid var(--border);
-    background: var(--card-bg); color: var(--fg); font-size: .85rem;
+  .cat-picker { position: relative; }
+  .cat-btn { display: inline-flex; align-items: center; gap: .3rem; }
+  .cat-btn.active { background: var(--accent); border-color: var(--accent); color: var(--bg); }
+  .cat-menu {
+    position: absolute; top: calc(100% + 6px); left: 0; z-index: 30;
+    min-width: 300px; max-width: 380px; max-height: 360px; overflow-y: auto;
+    background: var(--card-bg); border: 1px solid var(--border); border-radius: 12px;
+    box-shadow: 0 8px 24px rgba(0,0,0,.12); padding: .25rem;
   }
-  .cat-select[hidden] { display: none; }
+  .cat-menu[hidden] { display: none; }
+  .cat-row {
+    display: flex; justify-content: space-between; align-items: center; gap: .5rem;
+    padding: .45rem .6rem; border-radius: 8px; cursor: pointer; font-size: .85rem;
+  }
+  .cat-row:hover { background: var(--hover-bg); }
+  .cat-row.cat-back { color: var(--muted); font-size: .8rem; }
+  .cat-row .count { color: var(--muted); font-size: .78rem; }
+  .cat-row-right { display: flex; align-items: center; gap: .4rem; }
+  .cat-path-label {
+    color: var(--muted); font-size: .75rem; padding: .1rem .6rem .4rem;
+    border-bottom: 1px solid var(--border); margin-bottom: .25rem;
+  }
 
   .store-dot {
     display: inline-block; width: 10px; height: 10px; border-radius: 50%;
@@ -118,7 +137,7 @@
     color: var(--muted); text-align: center; padding: 3rem 1rem;
   }
   .range-chips { margin: 0 0 .75rem; }
-  .chart-wrap { height: 320px; position: relative; }
+  .chart-wrap { height: 380px; position: relative; }
 
   table { width: 100%; border-collapse: collapse; font-size: .85rem; margin-top: .75rem; }
   th {
@@ -142,30 +161,28 @@
   <input type="search" id="search" placeholder="Search product name or brand...">
 </header>
 
+<div class="filter-bar">
+  <div class="chips" id="storeChips"></div>
+  <div class="cat-picker">
+    <button type="button" class="chip cat-btn" id="catBtn">All categories &#9662;</button>
+    <div class="cat-menu" id="catMenu" hidden></div>
+  </div>
+</div>
+
 <div class="layout">
-  <div class="sidebar">
-    <div class="card">
-      <h2>Supermarkets</h2>
-      <div class="chips" id="storeChips"></div>
-    </div>
-    <div class="card">
-      <h2>Categories</h2>
-      <select class="cat-select" id="cat1"></select>
-      <select class="cat-select" id="cat2" hidden></select>
-      <select class="cat-select" id="cat3" hidden></select>
-    </div>
-    <div class="card">
-      <h2>Biggest drops (window-low, &ge;10% below 90-day median)</h2>
-      <div class="list drops-list" id="drops"></div>
-    </div>
+  <div class="card detail" id="detail">
+    <div class="detail-empty">Select a product to see its price history.</div>
+  </div>
+  <div class="below-grid">
     <div class="card">
       <h2>Products</h2>
       <div class="result-count" id="resultCount"></div>
       <div class="list" id="results"></div>
     </div>
-  </div>
-  <div class="card detail" id="detail">
-    <div class="detail-empty">Select a product to see its price history.</div>
+    <div class="card">
+      <h2>Biggest drops (window-low, &ge;10% below 90-day median)</h2>
+      <div class="list drops-list" id="drops"></div>
+    </div>
   </div>
 </div>
 
@@ -180,9 +197,12 @@
 // Category 1 itself may contain " / " so it's never split, only stored as-is.
 // products/<code>.json holds one product's sparse series, fetched on click.
 let INDEX = null;
+let PRODUCT_BY_CODE = new Map();
 let selectedCode = null;
 let selectedSummary = null;
 const state = { cat1: null, cat2: null, cat3: null, stores: new Set(), query: '' };
+let menuPath = [];
+let catMenuOpen = false;
 
 // Permanent per-chain colors — placeholders until user assigns final ones. Keys = OPW Supermarket Codes.
 const STORE_COLORS = {
@@ -222,13 +242,14 @@ matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
 
 fetch('./index.json').then(r => r.json()).then(d => {
   INDEX = d;
+  PRODUCT_BY_CODE = new Map(d.products.map(p => [p.code, p]));
   document.getElementById('meta').textContent =
     `${d.products.length} products, ${d.meta.snapshot_count} snapshots ` +
     `(${d.meta.window_start} to ${d.meta.window_end})`;
   document.getElementById('siteFooter').innerHTML =
     `Source: <a href="${d.meta.source}" target="_blank" rel="noopener">${d.meta.source}</a>`;
   renderStoreChips();
-  renderCatSelects();
+  renderCatBtn();
   applyFilters();
   renderDrops();
 }).catch(err => {
@@ -291,50 +312,113 @@ function catCounts(depth, parentVals) {
   return counts;
 }
 
-function fillCatSelect(sel, depth, parentVals, placeholder) {
-  const sorted = [...catCounts(depth, parentVals).entries()].sort((a, b) => b[1] - a[1]);
-  sel.innerHTML = `<option value="">${placeholder}</option>` +
-    sorted.map(([name, count]) => `<option value="${name}">${name} (${count})</option>`).join('');
+// Checks whether product p's category path matches the currently selected
+// cat1/cat2/cat3 filters (any unset level matches everything at that level).
+function matchesCat(p) {
+  if (!p) return false;
+  if (state.cat1 && p.category[0] !== state.cat1) return false;
+  if (state.cat2 && p.category[1] !== state.cat2) return false;
+  if (state.cat3 && p.category[2] !== state.cat3) return false;
+  return true;
 }
 
-function renderCatSelects() {
-  const sel1 = document.getElementById('cat1');
-  fillCatSelect(sel1, 0, [], 'All categories');
-  sel1.value = state.cat1 || '';
+function currentCatPath() {
+  return [state.cat1, state.cat2, state.cat3].filter(Boolean);
+}
 
-  const sel2 = document.getElementById('cat2');
-  sel2.hidden = !state.cat1;
-  if (state.cat1) {
-    fillCatSelect(sel2, 1, [state.cat1], 'All subcategories');
-    sel2.value = state.cat2 || '';
+function renderCatBtn() {
+  const path = currentCatPath();
+  const btn = document.getElementById('catBtn');
+  btn.textContent = (path.length ? path.join(' › ') : 'All categories') + ' ▾';
+  btn.classList.toggle('active', path.length > 0);
+}
+
+function applyCatPath(path) {
+  state.cat1 = path[0] || null;
+  state.cat2 = path[1] || null;
+  state.cat3 = path[2] || null;
+  closeCatMenu();
+  renderCatBtn();
+  applyFilters();
+  renderDrops();
+}
+
+function renderCatMenu() {
+  const menu = document.getElementById('catMenu');
+  menu.innerHTML = '';
+  const depth = menuPath.length;
+
+  if (depth > 0) {
+    const back = document.createElement('div');
+    back.className = 'cat-row cat-back';
+    back.textContent = '‹ Back';
+    back.onclick = () => { menuPath.pop(); renderCatMenu(); };
+    menu.appendChild(back);
+
+    const label = document.createElement('div');
+    label.className = 'cat-path-label';
+    label.textContent = menuPath.join(' › ');
+    menu.appendChild(label);
   }
 
-  const sel3 = document.getElementById('cat3');
-  sel3.hidden = !state.cat2;
-  if (state.cat2) {
-    fillCatSelect(sel3, 2, [state.cat1, state.cat2], 'All subcategories');
-    sel3.value = state.cat3 || '';
+  const allRow = document.createElement('div');
+  allRow.className = 'cat-row';
+  allRow.textContent = depth === 0 ? 'All categories' : `All in ${menuPath[menuPath.length - 1]}`;
+  allRow.onclick = () => applyCatPath(menuPath);
+  menu.appendChild(allRow);
+
+  const sorted = [...catCounts(depth, menuPath).entries()].sort((a, b) => b[1] - a[1]);
+  for (const [name, count] of sorted) {
+    const row = document.createElement('div');
+    row.className = 'cat-row';
+    const nameSpan = document.createElement('span');
+    nameSpan.textContent = name;
+    const right = document.createElement('span');
+    right.className = 'cat-row-right';
+    const countSpan = document.createElement('span');
+    countSpan.className = 'count';
+    countSpan.textContent = count;
+    right.appendChild(countSpan);
+
+    const hasChildren = catCounts(depth + 1, [...menuPath, name]).size > 0;
+    if (hasChildren) {
+      const arrow = document.createElement('span');
+      arrow.textContent = '›';
+      right.appendChild(arrow);
+      row.onclick = () => { menuPath.push(name); renderCatMenu(); };
+    } else {
+      row.onclick = () => applyCatPath([...menuPath, name]);
+    }
+    row.appendChild(nameSpan);
+    row.appendChild(right);
+    menu.appendChild(row);
   }
 }
 
-document.getElementById('cat1').addEventListener('change', e => {
-  state.cat1 = e.target.value || null;
-  state.cat2 = null;
-  state.cat3 = null;
-  renderCatSelects();
-  applyFilters();
+function openCatMenu() {
+  const path = currentCatPath();
+  menuPath = path.slice(0, Math.max(0, path.length - 1));
+  renderCatMenu();
+  document.getElementById('catMenu').hidden = false;
+  catMenuOpen = true;
+}
+
+function closeCatMenu() {
+  document.getElementById('catMenu').hidden = true;
+  catMenuOpen = false;
+}
+
+document.getElementById('catBtn').addEventListener('click', e => {
+  e.stopPropagation();
+  catMenuOpen ? closeCatMenu() : openCatMenu();
 });
 
-document.getElementById('cat2').addEventListener('change', e => {
-  state.cat2 = e.target.value || null;
-  state.cat3 = null;
-  renderCatSelects();
-  applyFilters();
+document.addEventListener('click', e => {
+  if (catMenuOpen && !e.composedPath().includes(document.querySelector('.cat-picker'))) closeCatMenu();
 });
 
-document.getElementById('cat3').addEventListener('change', e => {
-  state.cat3 = e.target.value || null;
-  applyFilters();
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape' && catMenuOpen) closeCatMenu();
 });
 
 document.getElementById('search').addEventListener('input', e => {
@@ -344,10 +428,7 @@ document.getElementById('search').addEventListener('input', e => {
 
 function applyFilters() {
   if (!INDEX) return;
-  let list = INDEX.products;
-  if (state.cat1) list = list.filter(p => p.category[0] === state.cat1);
-  if (state.cat2) list = list.filter(p => p.category[1] === state.cat2);
-  if (state.cat3) list = list.filter(p => p.category[2] === state.cat3);
+  let list = INDEX.products.filter(matchesCat);
   if (state.stores.size) {
     list = list.filter(p => p.stores.some(s => state.stores.has(s)));
   }
@@ -391,7 +472,9 @@ function selectProduct(p, btnEl) {
 function renderDrops() {
   const el = document.getElementById('drops');
   el.innerHTML = '';
-  const drops = state.stores.size ? INDEX.drops.filter(d => state.stores.has(d.store)) : INDEX.drops;
+  const drops = INDEX.drops.filter(d =>
+    (!state.stores.size || state.stores.has(d.store)) && matchesCat(PRODUCT_BY_CODE.get(d.code))
+  );
   for (const d of drops.slice(0, 20)) {
     const btn = document.createElement('button');
     btn.type = 'button';
@@ -404,7 +487,7 @@ function renderDrops() {
     };
     el.appendChild(btn);
   }
-  if (!drops.length) el.innerHTML = '<div class="item-sub">None this window.</div>';
+  if (!drops.length) el.innerHTML = '<div class="item-sub">None match current filters.</div>';
 }
 
 function median(nums) {
