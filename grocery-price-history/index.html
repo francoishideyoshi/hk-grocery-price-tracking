@@ -38,7 +38,8 @@
     background: var(--bg); border-bottom: 1px solid var(--border);
     padding: .75rem 1rem;
   }
-  .app-header h1 { font-size: 1.2rem; margin: 0 0 .15rem; }
+  .app-header h1 { font-size: 1.2rem; margin: 0 0 .15rem; padding-right: 3.5rem; }
+  .lang-toggle { position: absolute; top: .75rem; right: 1rem; }
   .meta { color: var(--muted); font-size: .8rem; margin: 0 0 .6rem; }
   input[type=search] {
     width: 100%; max-width: 420px; padding: .5rem .75rem; font-size: .9rem;
@@ -159,7 +160,8 @@
 </head>
 <body>
 <header class="app-header">
-  <h1>HK Grocery Price History</h1>
+  <button type="button" class="chip lang-toggle" id="langToggle">繁</button>
+  <h1 id="pageTitle">HK Grocery Price History</h1>
   <div class="meta" id="meta">Loading index.json ...</div>
   <input type="search" id="search" placeholder="Search product name or brand...">
 </header>
@@ -178,12 +180,12 @@
   </div>
   <div class="below-grid">
     <div class="card">
-      <h2>Products</h2>
+      <h2 id="productsHeading">Products</h2>
       <div class="result-count" id="resultCount"></div>
       <div class="list" id="results"></div>
     </div>
     <div class="card">
-      <h2>Biggest drops (window-low, &ge;10% below 90-day median)</h2>
+      <h2 id="dropsHeading">Biggest drops (window-low, &ge;10% below 90-day median)</h2>
       <div class="list drops-list" id="drops"></div>
     </div>
   </div>
@@ -203,9 +205,78 @@ let INDEX = null;
 let PRODUCT_BY_CODE = new Map();
 let selectedCode = null;
 let selectedSummary = null;
-const state = { cat1: null, cat2: null, cat3: null, stores: new Set(), query: '' };
+const state = {
+  cat1: null, cat2: null, cat3: null, stores: new Set(), query: '',
+  lang: localStorage.getItem('opwLang') || 'en',
+};
 let menuPath = [];
 let catMenuOpen = false;
+
+// TC name/brand/category per product code, fetched once on first switch to
+// TC (module-level cache, null until loaded). Built by backfill.py
+// --build-names-tc from sampled archive snapshots.
+let NAMES_TC = null;
+const tcOf = code => (NAMES_TC ? NAMES_TC[code] || null : null);
+const nameOf = p => (state.lang === 'tc' && tcOf(p.code)?.name) || p.name;
+const brandOf = p => (state.lang === 'tc' && tcOf(p.code)?.brand) || p.brand;
+const catOf = p => (state.lang === 'tc' && tcOf(p.code)?.cat?.length ? tcOf(p.code).cat : p.category);
+
+// ponytail: category VALUES differ by language, so switching language
+// resets the active category filter rather than trying to translate it.
+const T = {
+  en: {
+    h1: 'HK Grocery Price History',
+    searchPlaceholder: 'Search product name or brand...',
+    allCategories: 'All categories',
+    allIn: x => `All in ${x}`,
+    back: '‹ Back',
+    products: 'Products',
+    showing: (shown, total) => `Showing ${shown} of ${total} products`,
+    dropsTitle: 'Biggest drops (window-low, ≥10% below 90-day median)',
+    noneMatch: 'None match current filters.',
+    selectProduct: 'Select a product to see its price history.',
+    loading: 'Loading price history...',
+    loadFailed: err => `Failed to load price history: ${err}`,
+    thChain: 'Chain', thLatest: 'Latest', thMedian: 'Series median', thOffer: 'Offer',
+    badgeFake: 'fake discount', badgeDrop: 'drop',
+    fakeLabel: store => `fake discount: ${store}`,
+    dropLabel: store => `drop: ${store}`,
+    sourcePrefix: 'Source: ',
+    meta: (n, m, start, end) => `${n} products, ${m} snapshots (${start} to ${end})`,
+    rangeLabels: { '3M': '3M', '1Y': '1Y', '3Y': '3Y', All: 'All' },
+  },
+  tc: {
+    h1: '香港超市價格紀錄',
+    searchPlaceholder: '搜尋貨品名稱或品牌⋯',
+    allCategories: '所有分類',
+    allIn: x => `${x}（全部）`,
+    back: '‹ 返回',
+    products: '貨品',
+    showing: (shown, total) => `顯示 ${total} 件貨品中的 ${shown} 件`,
+    dropsTitle: '最大跌幅（視窗新低，低於90日中位數≥10%）',
+    noneMatch: '沒有符合篩選的貨品。',
+    selectProduct: '請選擇貨品以查看價格紀錄。',
+    loading: '載入價格紀錄中⋯',
+    loadFailed: err => `載入失敗：${err}`,
+    thChain: '超市', thLatest: '最新價', thMedian: '全期中位數', thOffer: '優惠',
+    badgeFake: '假折扣', badgeDrop: '減價',
+    fakeLabel: store => `假折扣：${store}`,
+    dropLabel: store => `減價：${store}`,
+    sourcePrefix: '資料來源：',
+    meta: (n, m, start, end) => `${n} 件貨品，${m} 個快照（${start} 至 ${end}）`,
+    rangeLabels: { '3M': '3個月', '1Y': '1年', '3Y': '3年', All: '全部' },
+  },
+};
+const t = () => T[state.lang];
+
+// Chain display names in TC mode — codes stay the keys/colors, only the
+// rendered label changes.
+const CHAIN_TC = {
+  PARKNSHOP: '百佳', WELLCOME: '惠康', AEON: 'AEON', WATSONS: '屈臣氏',
+  MANNINGS: '萬寧', JASONS: 'Market Place', DCHFOOD: '大昌食品',
+  LUNGFUNG: '龍豐', SASA: '莎莎',
+};
+const storeLabel = sm => (state.lang === 'tc' ? CHAIN_TC[sm] || sm : sm);
 
 // Permanent per-chain colors — placeholders until user assigns final ones. Keys = OPW Supermarket Codes.
 const STORE_COLORS = {
@@ -215,7 +286,7 @@ const STORE_COLORS = {
 };
 const STORE_ORDER = Object.keys(STORE_COLORS);
 const storeColor = sm => STORE_COLORS[sm] || '#9e9e9e';
-const storeTag = sm => `<span class="store-tag"><span class="store-dot" style="background:${storeColor(sm)}"></span>${sm}</span>`;
+const storeTag = sm => `<span class="store-tag"><span class="store-dot" style="background:${storeColor(sm)}"></span>${storeLabel(sm)}</span>`;
 const catLabel = c => Array.isArray(c) ? c.join(' › ') : c;
 
 const RANGES = { '3M': 90, '1Y': 365, '3Y': 1095, 'All': null };
@@ -244,18 +315,65 @@ matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
   if (selectedSummary) renderDetail(selectedSummary);
 });
 
-fetch('./index.json').then(r => r.json()).then(d => {
-  INDEX = d;
-  PRODUCT_BY_CODE = new Map(d.products.map(p => [p.code, p]));
-  document.getElementById('meta').textContent =
-    `${d.products.length} products, ${d.meta.snapshot_count} snapshots ` +
-    `(${d.meta.window_start} to ${d.meta.window_end})`;
-  document.getElementById('siteFooter').innerHTML =
-    `Source: <a href="${d.meta.source}" target="_blank" rel="noopener">${d.meta.source}</a>`;
+function applyLangToPage() {
+  document.documentElement.lang = state.lang === 'tc' ? 'zh-Hant' : 'en';
+  document.getElementById('pageTitle').textContent = t().h1;
+  document.getElementById('search').placeholder = t().searchPlaceholder;
+  document.getElementById('productsHeading').textContent = t().products;
+  document.getElementById('dropsHeading').textContent = t().dropsTitle;
+  document.getElementById('langToggle').textContent = state.lang === 'tc' ? 'EN' : '繁';
+  if (!selectedSummary) {
+    document.getElementById('detail').innerHTML = `<div class="detail-empty">${t().selectProduct}</div>`;
+  }
+  if (INDEX) {
+    document.getElementById('meta').textContent =
+      t().meta(INDEX.products.length, INDEX.meta.snapshot_count, INDEX.meta.window_start, INDEX.meta.window_end);
+    document.getElementById('siteFooter').innerHTML =
+      `${t().sourcePrefix}<a href="${INDEX.meta.source}" target="_blank" rel="noopener">${INDEX.meta.source}</a>`;
+  }
+}
+
+function renderAll() {
+  applyLangToPage();
   renderStoreChips();
   renderCatBtn();
   applyFilters();
   renderDrops();
+  if (selectedSummary) renderDetail(selectedSummary);
+}
+
+async function setLang(lang) {
+  state.lang = lang;
+  localStorage.setItem('opwLang', lang);
+  state.cat1 = state.cat2 = state.cat3 = null;
+  closeCatMenu();
+  if (lang === 'tc' && !NAMES_TC) {
+    try {
+      NAMES_TC = await fetch('./names_tc.json').then(r => r.json());
+    } catch {
+      NAMES_TC = {};
+    }
+  }
+  renderAll();
+}
+
+document.getElementById('langToggle').addEventListener('click', () => {
+  setLang(state.lang === 'tc' ? 'en' : 'tc');
+});
+
+applyLangToPage();
+
+fetch('./index.json').then(r => r.json()).then(async d => {
+  INDEX = d;
+  PRODUCT_BY_CODE = new Map(d.products.map(p => [p.code, p]));
+  if (state.lang === 'tc' && !NAMES_TC) {
+    try {
+      NAMES_TC = await fetch('./names_tc.json').then(r => r.json());
+    } catch {
+      NAMES_TC = {};
+    }
+  }
+  renderAll();
 }).catch(err => {
   document.getElementById('meta').textContent = 'Failed to load index.json: ' + err;
 });
@@ -264,8 +382,8 @@ function badgeSpans(badges) {
   return badges.map(b => {
     const [kind, store] = b.split(':');
     return kind === 'fake'
-      ? `<span class="badge fake">fake discount: ${store}</span>`
-      : `<span class="badge drop">drop: ${store}</span>`;
+      ? `<span class="badge fake">${t().fakeLabel(storeLabel(store))}</span>`
+      : `<span class="badge drop">${t().dropLabel(storeLabel(store))}</span>`;
   }).join('');
 }
 
@@ -288,7 +406,7 @@ function renderStoreChips() {
   el.innerHTML = '';
   for (const sm of STORE_ORDER) {
     const chip = makeChip(
-      `<span class="store-dot" style="background:${storeColor(sm)}"></span>${sm}`,
+      `<span class="store-dot" style="background:${storeColor(sm)}"></span>${storeLabel(sm)}`,
       null, state.stores.has(sm)
     );
     chip.onclick = () => toggleStore(sm);
@@ -309,8 +427,9 @@ function toggleStore(sm) {
 function catCounts(depth, parentVals) {
   const counts = new Map();
   for (const p of INDEX.products) {
-    if (parentVals.some((v, i) => p.category[i] !== v)) continue;
-    const val = p.category[depth];
+    const cat = catOf(p);
+    if (parentVals.some((v, i) => cat[i] !== v)) continue;
+    const val = cat[depth];
     if (val) counts.set(val, (counts.get(val) || 0) + 1);
   }
   return counts;
@@ -318,11 +437,14 @@ function catCounts(depth, parentVals) {
 
 // Checks whether product p's category path matches the currently selected
 // cat1/cat2/cat3 filters (any unset level matches everything at that level).
+// Category values are language-specific (see catOf) — switching language
+// resets these filters rather than translating them.
 function matchesCat(p) {
   if (!p) return false;
-  if (state.cat1 && p.category[0] !== state.cat1) return false;
-  if (state.cat2 && p.category[1] !== state.cat2) return false;
-  if (state.cat3 && p.category[2] !== state.cat3) return false;
+  const cat = catOf(p);
+  if (state.cat1 && cat[0] !== state.cat1) return false;
+  if (state.cat2 && cat[1] !== state.cat2) return false;
+  if (state.cat3 && cat[2] !== state.cat3) return false;
   return true;
 }
 
@@ -333,7 +455,7 @@ function currentCatPath() {
 function renderCatBtn() {
   const path = currentCatPath();
   const btn = document.getElementById('catBtn');
-  btn.textContent = (path.length ? path.join(' › ') : 'All categories') + ' ▾';
+  btn.textContent = (path.length ? path.join(' › ') : t().allCategories) + ' ▾';
   btn.classList.toggle('active', path.length > 0);
 }
 
@@ -355,7 +477,7 @@ function renderCatMenu() {
   if (depth > 0) {
     const back = document.createElement('div');
     back.className = 'cat-row cat-back';
-    back.textContent = '‹ Back';
+    back.textContent = t().back;
     back.onclick = () => { menuPath.pop(); renderCatMenu(); };
     menu.appendChild(back);
 
@@ -367,7 +489,7 @@ function renderCatMenu() {
 
   const allRow = document.createElement('div');
   allRow.className = 'cat-row';
-  allRow.textContent = depth === 0 ? 'All categories' : `All in ${menuPath[menuPath.length - 1]}`;
+  allRow.textContent = depth === 0 ? t().allCategories : t().allIn(menuPath[menuPath.length - 1]);
   allRow.onclick = () => applyCatPath(menuPath);
   menu.appendChild(allRow);
 
@@ -437,11 +559,16 @@ function applyFilters() {
     list = list.filter(p => p.stores.some(s => state.stores.has(s)));
   }
   if (state.query) {
+    // Search always matches EN + TC name/brand, regardless of active language.
     const q = state.query;
-    list = list.filter(p => p.name.toLowerCase().includes(q) || p.brand.toLowerCase().includes(q));
+    list = list.filter(p => {
+      if (p.name.toLowerCase().includes(q) || p.brand.toLowerCase().includes(q)) return true;
+      const tc = tcOf(p.code);
+      return !!tc && ((tc.name || '').toLowerCase().includes(q) || (tc.brand || '').toLowerCase().includes(q));
+    });
   }
-  document.getElementById('resultCount').textContent =
-    `Showing ${Math.min(list.length, 200)} of ${list.length} products`;
+  const shown = Math.min(list.length, 200);
+  document.getElementById('resultCount').textContent = t().showing(shown, list.length);
   renderResults(list.slice(0, 200));
 }
 
@@ -453,8 +580,8 @@ function renderResults(products) {
     btn.type = 'button';
     btn.className = 'item' + (p.code === selectedCode ? ' selected' : '');
     btn.innerHTML =
-      `<div class="item-row"><div><div class="item-name">${p.name}</div>` +
-      `<div class="item-sub">${p.brand} &middot; ${catLabel(p.category)}</div></div>` +
+      `<div class="item-row"><div><div class="item-name">${nameOf(p)}</div>` +
+      `<div class="item-sub">${brandOf(p)} &middot; ${catLabel(catOf(p))}</div></div>` +
       `<div class="item-price">${priceLabel(p.latest_price_range)}</div></div>` +
       `<div class="stores-row">${STORE_ORDER.filter(s => p.stores.includes(s)).map(storeTag).join('')}</div>` +
       `<div class="badges">${badgeSpans(p.badges)}</div>`;
@@ -484,7 +611,7 @@ function renderDrops() {
     const btn = document.createElement('button');
     btn.type = 'button';
     btn.className = 'item drop-item';
-    btn.innerHTML = `<span>${d.name} ${storeTag(d.store)}</span>` +
+    btn.innerHTML = `<span>${nameOf(d)} ${storeTag(d.store)}</span>` +
       `<span class="badge drop">-${d.pct.toFixed(0)}% $${d.latest.toFixed(2)}</span>`;
     btn.onclick = () => {
       const p = INDEX.products.find(x => x.code === d.code);
@@ -492,7 +619,7 @@ function renderDrops() {
     };
     el.appendChild(btn);
   }
-  if (!drops.length) el.innerHTML = '<div class="item-sub">None match current filters.</div>';
+  if (!drops.length) el.innerHTML = `<div class="item-sub">${t().noneMatch}</div>`;
 }
 
 function median(nums) {
@@ -505,8 +632,8 @@ let chart = null;
 
 async function renderDetail(summary) {
   const el = document.getElementById('detail');
-  el.innerHTML = `<h2>${summary.name}</h2><p class="sub-line">${summary.brand} &middot; ${catLabel(summary.category)}</p>` +
-    `<div class="detail-loading">Loading price history...</div>`;
+  el.innerHTML = `<h2>${nameOf(summary)}</h2><p class="sub-line">${brandOf(summary)} &middot; ${catLabel(catOf(summary))}</p>` +
+    `<div class="detail-loading">${t().loading}</div>`;
 
   let p;
   try {
@@ -515,11 +642,11 @@ async function renderDetail(summary) {
       return r.json();
     });
   } catch (err) {
-    el.innerHTML += `<div class="detail-error">Failed to load price history: ${err}</div>`;
+    el.innerHTML += `<div class="detail-error">${t().loadFailed(err)}</div>`;
     return;
   }
 
-  el.innerHTML = `<h2>${p.name}</h2><p class="sub-line">${p.brand} &middot; ${catLabel(p.category)}</p>` +
+  el.innerHTML = `<h2>${nameOf(p)}</h2><p class="sub-line">${brandOf(p)} &middot; ${catLabel(catOf(p))}</p>` +
     `<div class="chips range-chips" id="rangeChips"></div>` +
     `<div class="chart-wrap"><canvas id="chart"></canvas></div><table id="latestTable"></table>`;
 
@@ -536,7 +663,7 @@ async function renderDetail(summary) {
       points.push({ x: Date.parse(summary.last_seen), y: last[1], offer: last[2] });
     }
     return {
-      label: sm, data: points, stepped: true,
+      label: storeLabel(sm), data: points, stepped: true,
       borderColor: storeColor(sm), fill: false,
       borderWidth: 2, pointRadius: 0, pointHoverRadius: 4, pointHitRadius: 12,
       pointHoverBackgroundColor: storeColor(sm),
@@ -554,7 +681,7 @@ async function renderDetail(summary) {
     const el = document.getElementById('rangeChips');
     el.innerHTML = '';
     for (const key of Object.keys(RANGES)) {
-      const chip = makeChip(key, null, key === chartRange);
+      const chip = makeChip(t().rangeLabels[key], null, key === chartRange);
       chip.onclick = () => {
         chartRange = key;
         const { min, max } = rangeWindow();
@@ -601,6 +728,8 @@ async function renderDetail(summary) {
           titleColor: cssVar('--fg'), bodyColor: cssVar('--fg'), padding: 10, cornerRadius: 8,
           usePointStyle: true, boxPadding: 4,
           callbacks: {
+            // ponytail: historical Offers/promo text is EN-only source data
+            // (see backfill.py) — shown untranslated in TC mode too.
             label: ctx => `${ctx.dataset.label}: $${ctx.parsed.y.toFixed(2)}` +
               (ctx.raw.offer ? ` — ${ctx.raw.offer}` : ''),
           },
@@ -613,13 +742,13 @@ async function renderDetail(summary) {
   const rows = seriesEntries.map(([sm, series]) => {
     const latest = series[series.length - 1];
     const med = median(series.map(pt => pt[1]));
-    const badge = fake.has(sm) ? '<span class="badge fake">fake discount</span>' : '';
+    const badge = fake.has(sm) ? `<span class="badge fake">${t().badgeFake}</span>` : '';
     const offer = latest[2] || '';
-    return `<tr><td>${sm}</td><td class="num">$${latest[1].toFixed(2)}</td><td class="num">$${med.toFixed(2)}</td>` +
+    return `<tr><td>${storeLabel(sm)}</td><td class="num">$${latest[1].toFixed(2)}</td><td class="num">$${med.toFixed(2)}</td>` +
       `<td class="promo" title="${offer}">${offer}</td><td>${badge}</td></tr>`;
   }).join('');
   document.getElementById('latestTable').innerHTML =
-    '<tr><th>Chain</th><th class="num">Latest</th><th class="num">Series median</th><th>Offer</th><th></th></tr>' + rows;
+    `<tr><th>${t().thChain}</th><th class="num">${t().thLatest}</th><th class="num">${t().thMedian}</th><th>${t().thOffer}</th><th></th></tr>` + rows;
 }
 </script>
 </body>
