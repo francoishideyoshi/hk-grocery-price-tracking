@@ -2,6 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <title>HK Grocery Price History</title>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
 <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3"></script>
@@ -153,6 +154,19 @@
   tbody tr:hover td { background: var(--hover-bg); }
   th.num, td.num { text-align: right; font-variant-numeric: tabular-nums; }
   td.promo { max-width: 140px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+  .table-wrap { overflow-x: auto; }
+
+  @media (max-width: 640px) {
+    .layout { padding: .75rem; }
+    input[type=search] { font-size: 16px; } /* <16px input font triggers iOS zoom-on-focus */
+    .chip { padding: .45rem .8rem; }
+    .cat-row { padding: .6rem; }
+    .filter-bar .chips { flex-wrap: nowrap; overflow-x: auto; width: 100%; padding-bottom: .25rem; }
+    .cat-menu { max-width: calc(100vw - 2rem); min-width: min(300px, calc(100vw - 2rem)); }
+    .detail { min-height: auto; }
+    .chart-wrap { height: 300px; }
+  }
 
   .site-footer { text-align: center; padding: 1.5rem 1rem; font-size: .75rem; color: var(--muted); }
   .site-footer a { color: var(--muted); }
@@ -648,7 +662,7 @@ async function renderDetail(summary) {
 
   el.innerHTML = `<h2>${nameOf(p)}</h2><p class="sub-line">${brandOf(p)} &middot; ${catLabel(catOf(p))}</p>` +
     `<div class="chips range-chips" id="rangeChips"></div>` +
-    `<div class="chart-wrap"><canvas id="chart"></canvas></div><table id="latestTable"></table>`;
+    `<div class="chart-wrap"><canvas id="chart"></canvas></div><div class="table-wrap"><table id="latestTable"></table></div>`;
 
   // Series are sparse (a point only when price/promo changed). Extend each
   // store's line to the product's last confirmed-seen date with a flat
