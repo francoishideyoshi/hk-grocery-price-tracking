@@ -117,7 +117,8 @@
   .detail-empty, .detail-loading, .detail-error {
     color: var(--muted); text-align: center; padding: 3rem 1rem;
   }
-  canvas { max-height: 320px; }
+  .range-chips { margin: 0 0 .75rem; }
+  .chart-wrap { height: 320px; position: relative; }
 
   table { width: 100%; border-collapse: collapse; font-size: .85rem; margin-top: .75rem; }
   th {
@@ -192,6 +193,32 @@ const STORE_COLORS = {
 const STORE_ORDER = Object.keys(STORE_COLORS);
 const storeColor = sm => STORE_COLORS[sm] || '#9e9e9e';
 const catLabel = c => Array.isArray(c) ? c.join(' › ') : c;
+
+const RANGES = { '3M': 90, '1Y': 365, '3Y': 1095, 'All': null };
+let chartRange = '1Y';
+const cssVar = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+
+const crosshair = {
+  id: 'crosshair',
+  afterDraw(c) {
+    const active = c.tooltip?.getActiveElements?.();
+    if (!active?.length) return;
+    const { ctx, chartArea } = c;
+    const x = active[0].element.x;
+    ctx.save();
+    ctx.strokeStyle = cssVar('--border');
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(x, chartArea.top);
+    ctx.lineTo(x, chartArea.bottom);
+    ctx.stroke();
+    ctx.restore();
+  },
+};
+
+matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
+  if (selectedSummary) renderDetail(selectedSummary);
+});
 
 fetch('./index.json').then(r => r.json()).then(d => {
   INDEX = d;
@@ -405,7 +432,8 @@ async function renderDetail(summary) {
   }
 
   el.innerHTML = `<h2>${p.name}</h2><p class="sub-line">${p.brand} &middot; ${catLabel(p.category)}</p>` +
-    `<canvas id="chart"></canvas><table id="latestTable"></table>`;
+    `<div class="chips range-chips" id="rangeChips"></div>` +
+    `<div class="chart-wrap"><canvas id="chart"></canvas></div><table id="latestTable"></table>`;
 
   // Series are sparse (a point only when price/promo changed). Extend each
   // store's line to the product's last confirmed-seen date with a flat
@@ -422,22 +450,68 @@ async function renderDetail(summary) {
     return {
       label: sm, data: points, stepped: true,
       borderColor: storeColor(sm), fill: false,
+      borderWidth: 2, pointRadius: 0, pointHoverRadius: 4, pointHitRadius: 12,
+      pointHoverBackgroundColor: storeColor(sm),
     };
   });
 
+  function rangeWindow() {
+    const days = RANGES[chartRange];
+    if (days == null) return { min: undefined, max: undefined };
+    const lastX = Math.max(...datasets.flatMap(d => d.data.map(pt => pt.x)));
+    return { min: lastX - days * 864e5, max: lastX };
+  }
+
+  function renderRangeChips() {
+    const el = document.getElementById('rangeChips');
+    el.innerHTML = '';
+    for (const key of Object.keys(RANGES)) {
+      const chip = makeChip(key, null, key === chartRange);
+      chip.onclick = () => {
+        chartRange = key;
+        const { min, max } = rangeWindow();
+        chart.options.scales.x.min = min;
+        chart.options.scales.x.max = max;
+        chart.update();
+        renderRangeChips();
+      };
+      el.appendChild(chip);
+    }
+  }
+  renderRangeChips();
+
   if (chart) chart.destroy();
+  const initWindow = rangeWindow();
   chart = new Chart(document.getElementById('chart'), {
     type: 'line',
     data: { datasets },
+    plugins: [crosshair],
     options: {
       parsing: false,
+      maintainAspectRatio: false,
+      interaction: { mode: 'index', intersect: false },
       scales: {
-        x: { type: 'time', time: { tooltipFormat: 'yyyy-MM-dd' } },
-        y: { beginAtZero: false },
+        x: {
+          type: 'time', time: { tooltipFormat: 'yyyy-MM-dd' },
+          min: initWindow.min, max: initWindow.max,
+          grid: { display: false }, border: { display: false },
+          ticks: { color: cssVar('--muted'), maxRotation: 0, maxTicksLimit: 6 },
+        },
+        y: {
+          beginAtZero: false,
+          grid: { color: cssVar('--border') }, border: { display: false },
+          ticks: { color: cssVar('--muted'), maxTicksLimit: 5, callback: v => '$' + v },
+        },
       },
       plugins: {
-        legend: { position: 'bottom' },
+        legend: {
+          position: 'bottom',
+          labels: { usePointStyle: true, pointStyle: 'line', color: cssVar('--fg'), padding: 16 },
+        },
         tooltip: {
+          backgroundColor: cssVar('--card-bg'), borderColor: cssVar('--border'), borderWidth: 1,
+          titleColor: cssVar('--fg'), bodyColor: cssVar('--fg'), padding: 10, cornerRadius: 8,
+          usePointStyle: true, boxPadding: 4,
           callbacks: {
             label: ctx => `${ctx.dataset.label}: $${ctx.parsed.y.toFixed(2)}` +
               (ctx.raw.offer ? ` — ${ctx.raw.offer}` : ''),
