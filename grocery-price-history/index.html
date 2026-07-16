@@ -14,6 +14,7 @@
     --shadow: 0 1px 2px rgba(0,0,0,.05);
     --green-bg: #dcfce7; --green-fg: #166534;
     --amber-bg: #fef3c7; --amber-fg: #92400e;
+    --error-fg: #dc2626;
   }
   @media (prefers-color-scheme: dark) {
     :root {
@@ -23,11 +24,17 @@
       --shadow: 0 1px 2px rgba(0,0,0,.4);
       --green-bg: rgba(34,197,94,.18); --green-fg: #86efac;
       --amber-bg: rgba(245,158,11,.18); --amber-fg: #fcd34d;
+      --error-fg: #f87171;
     }
   }
   * { box-sizing: border-box; }
+  /* -apple-system-body is the iOS Safari Dynamic Type hook: it resolves to
+     the user's OS text-size setting. Only font-family is overridden below,
+     so size/line-height keep tracking Dynamic Type; every other font-size
+     in this file is in rem so it scales off the same root value. */
+  html { font: -apple-system-body; }
   body {
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+    font-family: system-ui, -apple-system, "PingFang HK", "Noto Sans TC", sans-serif;
     margin: 0; background: var(--bg); color: var(--fg);
   }
   .chip:focus-visible, .item:focus-visible, input:focus-visible, select:focus-visible {
@@ -40,7 +47,9 @@
     padding: .75rem 1rem;
   }
   .app-header h1 { font-size: 1.2rem; margin: 0 0 .15rem; padding-right: 3.5rem; }
-  .lang-toggle { position: absolute; top: .75rem; right: 1rem; }
+  body.auth-on .app-header h1 { padding-right: 10rem; }
+  .header-actions { position: absolute; top: .75rem; right: 1rem; display: flex; gap: .4rem; }
+  .account-btn { max-width: 110px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .meta { color: var(--muted); font-size: .8rem; margin: 0 0 .6rem; }
   input[type=search] {
     width: 100%; max-width: 420px; padding: .5rem .75rem; font-size: .9rem;
@@ -56,6 +65,7 @@
   .layout { display: block; padding: 1rem; max-width: none; }
 
   .below-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-top: 1rem; }
+  .below-grid > .card { min-width: 0; } /* grid items default to min-width:auto, which lets an unshrinkable descendant blow out the whole grid */
   @media (max-width: 880px) {
     .below-grid { grid-template-columns: 1fr; }
   }
@@ -69,18 +79,46 @@
     font-weight: 600; color: var(--muted); margin: 0 0 .5rem;
   }
 
+  .products-head { display: flex; align-items: center; justify-content: space-between; gap: .5rem; flex-wrap: wrap; }
+  .products-head h2 { margin: 0; flex-shrink: 0; }
+  .sort-control { display: flex; align-items: center; gap: .4rem; margin-bottom: .5rem; min-width: 0; flex: 1 1 auto; justify-content: flex-end; }
+  .sort-control label { font-size: .72rem; color: var(--muted); flex-shrink: 0; }
+  .sort-control select {
+    min-height: 2.75rem; flex: 0 1 auto; min-width: 0; max-width: 100%;
+    border: 1px solid var(--border); background: var(--card-bg);
+    color: var(--fg); border-radius: 999px; padding: .3rem .7rem; font-size: .8rem;
+    font: inherit; cursor: pointer; text-overflow: ellipsis;
+  }
+
   .chips { display: flex; flex-wrap: wrap; gap: .4rem; }
   .chip {
+    display: inline-flex; align-items: center; min-height: 2.75rem;
     border: 1px solid var(--border); background: var(--card-bg); color: var(--fg);
-    border-radius: 999px; padding: .3rem .7rem; font-size: .8rem; cursor: pointer;
+    border-radius: 999px; padding: .3rem .9rem; font-size: .8rem; font: inherit; cursor: pointer;
+    transition: background-color .15s ease, border-color .15s ease, transform .1s ease;
   }
+  .chip[hidden] { display: none; }
+  .chip:hover { background: var(--hover-bg); }
+  .chip:active { transform: scale(.97); }
   .chip .count { color: var(--muted); margin-left: .25rem; font-size: .75rem; }
   .chip.active { background: var(--accent); border-color: var(--accent); color: var(--bg); }
+  .chip.active:hover { background: var(--accent); }
   .chip.active .count { color: inherit; opacity: .85; }
 
-  .cat-picker { position: relative; }
-  .cat-btn { display: inline-flex; align-items: center; gap: .3rem; }
+  .cat-picker { position: relative; display: inline-flex; align-items: center; gap: .4rem; }
+  .cat-label { font-size: .75rem; color: var(--muted); }
+  .cat-btn { display: inline-flex; align-items: center; gap: .35rem; }
   .cat-btn.active { background: var(--accent); border-color: var(--accent); color: var(--bg); }
+  .cat-chevron { display: inline-block; font-size: .75em; transition: transform .15s ease; }
+  .cat-btn[aria-expanded="true"] .cat-chevron { transform: rotate(180deg); }
+  .cat-clear {
+    display: inline-flex; align-items: center; justify-content: center;
+    min-width: 2.75rem; min-height: 2.75rem; border: none; background: none;
+    color: var(--muted); font-size: 1.1rem; line-height: 1; cursor: pointer;
+    border-radius: 50%;
+  }
+  .cat-clear:hover { background: var(--hover-bg); color: var(--fg); }
+  .cat-clear[hidden] { display: none; }
   .cat-menu {
     position: absolute; top: calc(100% + 6px); left: 0; z-index: 30;
     min-width: 300px; max-width: 380px; max-height: 360px; overflow-y: auto;
@@ -90,9 +128,10 @@
   .cat-menu[hidden] { display: none; }
   .cat-row {
     display: flex; justify-content: space-between; align-items: center; gap: .5rem;
-    padding: .45rem .6rem; border-radius: 8px; cursor: pointer; font-size: .85rem;
+    min-height: 2.75rem; padding: .45rem .6rem; border-radius: 8px; cursor: pointer; font-size: .85rem;
   }
   .cat-row:hover { background: var(--hover-bg); }
+  .cat-row:active { background: var(--hover-bg); }
   .cat-row.cat-back { color: var(--muted); font-size: .8rem; }
   .cat-row .count { color: var(--muted); font-size: .78rem; }
   .cat-row-right { display: flex; align-items: center; gap: .4rem; }
@@ -111,22 +150,30 @@
 
   .result-count { font-size: .75rem; color: var(--muted); margin: 0 0 .5rem; }
 
-  .list { max-height: 420px; overflow-y: auto; display: flex; flex-direction: column; gap: 2px; }
+  .list { max-height: 420px; overflow-y: auto; display: flex; flex-direction: column; gap: .4rem; }
   .item {
-    display: block; width: 100%; text-align: left; padding: .5rem .6rem;
-    border: 1px solid transparent; border-radius: 8px; background: none;
-    cursor: pointer; font: inherit; color: var(--fg);
+    display: block; width: 100%; min-height: 2.75rem; text-align: left; padding: .6rem .7rem;
+    border: 1px solid var(--border); border-radius: 10px; background: var(--card-bg);
+    box-shadow: var(--shadow); cursor: pointer; font: inherit; color: var(--fg);
+    transition: background-color .15s ease, border-color .15s ease, box-shadow .15s ease, transform .1s ease;
   }
-  .item:hover { background: var(--hover-bg); }
+  .item:hover { background: var(--hover-bg); border-color: var(--muted); box-shadow: 0 2px 8px rgba(0,0,0,.08); }
+  .item:active { transform: scale(.99); }
   .item.selected { border-color: var(--accent); background: var(--accent-bg-soft); }
   .item-row { display: flex; justify-content: space-between; align-items: flex-start; gap: .5rem; }
   .item-name { font-weight: 500; font-size: .88rem; }
   .item-sub { color: var(--muted); font-size: .78rem; margin-top: 1px; }
-  .item-price { font-size: .85rem; font-weight: 500; white-space: nowrap; }
+  .item-price { font-size: .85rem; font-weight: 500; white-space: nowrap; text-align: right; }
+  .item-unit { font-size: .72rem; font-weight: 400; color: var(--muted); margin-top: 1px; }
+  .item-arrow { color: var(--muted); font-size: .8rem; align-self: center; }
   .badges { margin-top: .3rem; display: flex; gap: .25rem; flex-wrap: wrap; }
 
   .drop-item { display: flex; justify-content: space-between; align-items: center; gap: .5rem; }
   .drop-item small { color: var(--muted); }
+
+  @media (prefers-reduced-motion: reduce) {
+    .item, .chip, .cat-chevron, .detail-collapse, .detail-toggle .chevron { transition: none; }
+  }
 
   .badge {
     display: inline-block; padding: 1px 8px; border-radius: 999px;
@@ -134,6 +181,22 @@
   }
   .badge.fake { background: var(--amber-bg); color: var(--amber-fg); }
   .badge.drop { background: var(--green-bg); color: var(--green-fg); }
+
+  .detail-card { padding: 0; }
+  .detail-toggle {
+    display: flex; width: 100%; align-items: center; justify-content: space-between;
+    min-height: 2.75rem; padding: .75rem; margin: 0; border: none; border-radius: 12px;
+    background: none; color: var(--fg); font: inherit; font-weight: 600; cursor: pointer;
+  }
+  .detail-toggle:hover { background: var(--hover-bg); }
+  .detail-toggle .chevron { color: var(--muted); transition: transform .15s ease; }
+  .detail-toggle[aria-expanded="true"] .chevron { transform: rotate(180deg); }
+  .detail-collapse {
+    display: grid; grid-template-rows: 0fr; transition: grid-template-rows .25s ease;
+  }
+  .detail-collapse.open { grid-template-rows: 1fr; }
+  .detail-collapse-inner { overflow: hidden; min-height: 0; }
+  .detail-collapse-inner .detail { padding: 0 .75rem .75rem; }
 
   .detail { min-height: 480px; }
   .detail h2 { margin: 0 0 .1rem; font-size: 1.1rem; }
@@ -159,7 +222,7 @@
 
   @media (max-width: 640px) {
     .layout { padding: .75rem; }
-    input[type=search] { font-size: 16px; } /* <16px input font triggers iOS zoom-on-focus */
+    input[type=search] { font-size: 1rem; } /* <16px input font triggers iOS zoom-on-focus; 1rem tracks Dynamic Type and is >=16px at default settings */
     .chip { padding: .45rem .8rem; }
     .cat-row { padding: .6rem; }
     .filter-bar .chips { flex-wrap: nowrap; overflow-x: auto; width: 100%; padding-bottom: .25rem; }
@@ -169,12 +232,45 @@
   }
 
   .site-footer { text-align: center; padding: 1.5rem 1rem; font-size: .75rem; color: var(--muted); }
-  .site-footer a { color: var(--muted); }
+  .site-footer a { color: var(--muted); overflow-wrap: anywhere; }
+
+  .star {
+    display: inline-flex; align-items: center; justify-content: center;
+    min-width: 2.75rem; min-height: 2.75rem; border-radius: 50%;
+    cursor: pointer; margin-left: .2rem; color: var(--muted); user-select: none;
+  }
+  .star:hover { background: var(--hover-bg); }
+  .star.tracked { color: var(--accent); }
+
+  .modal-overlay {
+    position: fixed; inset: 0; z-index: 50; background: rgba(0,0,0,.4);
+    display: flex; align-items: center; justify-content: center; padding: 1rem;
+  }
+  .modal-overlay[hidden] { display: none; }
+  .modal-card { width: 100%; max-width: 340px; }
+  .modal-card h2 { margin: 0 0 .75rem; font-size: 1rem; }
+  .modal-card input {
+    display: block; width: 100%; margin-bottom: .5rem; padding: .5rem .75rem;
+    font-size: 1rem; border: 1px solid var(--border); border-radius: 8px;
+    background: var(--bg); color: var(--fg);
+  }
+  .modal-actions { display: flex; gap: .5rem; flex-wrap: wrap; margin-top: .5rem; }
+  .auth-error { color: var(--error-fg); font-size: .8rem; margin-bottom: .5rem; }
+  .auth-note { color: var(--accent); font-size: .8rem; margin-bottom: .5rem; }
+  .oauth-buttons { display: flex; flex-direction: column; gap: .5rem; margin-bottom: .75rem; }
+  .oauth-btn { width: 100%; justify-content: center; font-weight: 500; }
+  .oauth-apple { background: #000; border-color: #000; color: #fff; }
+  .oauth-apple:hover { background: #1a1a1a; }
+  .auth-divider { display: flex; align-items: center; gap: .6rem; margin: 0 0 .75rem; color: var(--muted); font-size: .78rem; }
+  .auth-divider::before, .auth-divider::after { content: ''; flex: 1; border-top: 1px solid var(--border); }
 </style>
 </head>
 <body>
 <header class="app-header">
-  <button type="button" class="chip lang-toggle" id="langToggle">繁</button>
+  <div class="header-actions">
+    <button type="button" class="chip account-btn" id="accountBtn" hidden></button>
+    <button type="button" class="chip lang-toggle" id="langToggle">繁</button>
+  </div>
   <h1 id="pageTitle">HK Grocery Price History</h1>
   <div class="meta" id="meta">Loading index.json ...</div>
   <input type="search" id="search" placeholder="Search product name or brand...">
@@ -183,18 +279,38 @@
 <div class="filter-bar">
   <div class="chips" id="storeChips"></div>
   <div class="cat-picker">
-    <button type="button" class="chip cat-btn" id="catBtn">All categories &#9662;</button>
+    <span class="cat-label" id="catLabel">Category</span>
+    <button type="button" class="chip cat-btn" id="catBtn" aria-haspopup="true" aria-expanded="false">
+      <span id="catBtnText">All categories</span><span class="cat-chevron" aria-hidden="true">&#9662;</span>
+    </button>
+    <button type="button" class="cat-clear" id="catClear" hidden>&times;</button>
     <div class="cat-menu" id="catMenu" hidden></div>
   </div>
+  <button type="button" class="chip" id="trackerChip" hidden></button>
 </div>
 
 <div class="layout">
-  <div class="card detail" id="detail">
-    <div class="detail-empty">Select a product to see its price history.</div>
+  <div class="card detail-card" id="detailCard">
+    <button type="button" class="detail-toggle" id="detailToggle" aria-expanded="false" aria-controls="detailCollapse">
+      <span id="detailToggleLabel">Price chart</span><span class="chevron" aria-hidden="true">&#9662;</span>
+    </button>
+    <div class="detail-collapse" id="detailCollapse">
+      <div class="detail-collapse-inner">
+        <div class="detail" id="detail">
+          <div class="detail-empty">Select a product to see its price history.</div>
+        </div>
+      </div>
+    </div>
   </div>
   <div class="below-grid">
     <div class="card">
-      <h2 id="productsHeading">Products</h2>
+      <div class="products-head">
+        <h2 id="productsHeading">Products</h2>
+        <div class="sort-control">
+          <label for="sortSelect" id="sortLabel">Sort</label>
+          <select id="sortSelect"></select>
+        </div>
+      </div>
       <div class="result-count" id="resultCount"></div>
       <div class="list" id="results"></div>
     </div>
@@ -207,6 +323,8 @@
 
 <footer class="site-footer" id="siteFooter"></footer>
 
+<div class="modal-overlay" id="authModal" hidden></div>
+
 <script>
 // ponytail: no build step, no framework — fetch + render, good enough for a prototype.
 // index.json holds search/badge/drop summaries (badges + drops precomputed
@@ -215,6 +333,25 @@
 // p.category is a list of 1-3 names (Category 1/2/3 from the source CSV);
 // Category 1 itself may contain " / " so it's never split, only stored as-is.
 // products/<code>.json holds one product's sparse series, fetched on click.
+// Accounts + watchlist (Supabase). Leave both blank to keep the site exactly
+// as it was before this feature — see SETUP-AUTH.md to fill them in.
+const SUPABASE_URL = 'https://cwchbjmtvfwmdyakndvx.supabase.co';
+const SUPABASE_ANON_KEY = 'sb_publishable_hIDB5IxyTM_7uz1eoJpDXA_xHv8Xox6';
+const AUTH_ENABLED = !!(SUPABASE_URL && SUPABASE_ANON_KEY);
+if (AUTH_ENABLED) document.body.classList.add('auth-on');
+let sb = null;
+let session = null;
+let watchlist = new Set();
+if (AUTH_ENABLED) {
+  const sbScript = document.createElement('script');
+  sbScript.src = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2';
+  sbScript.onload = () => {
+    sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    initAuth();
+  };
+  document.head.appendChild(sbScript);
+}
+
 let INDEX = null;
 let PRODUCT_BY_CODE = new Map();
 let selectedCode = null;
@@ -222,6 +359,7 @@ let selectedSummary = null;
 const state = {
   cat1: null, cat2: null, cat3: null, stores: new Set(), query: '',
   lang: localStorage.getItem('opwLang') || 'en',
+  trackerOnly: false, sort: 'stores_desc', chartOpen: false,
 };
 let menuPath = [];
 let catMenuOpen = false;
@@ -258,6 +396,16 @@ const T = {
     sourcePrefix: 'Source: ',
     meta: (n, m, start, end) => `${n} products, ${m} snapshots (${start} to ${end})`,
     rangeLabels: { '3M': '3M', '1Y': '1Y', '3Y': '3Y', All: 'All' },
+    account: 'Account', login: 'Log in', signUp: 'Sign up', logout: 'Log out',
+    email: 'Email', password: 'Password', cancel: 'Cancel',
+    myTracker: 'My tracker', track: 'Track', untrack: 'Untrack',
+    noTracked: 'No tracked products yet',
+    confirmSent: 'Confirmation email sent',
+    category: 'Category', clearCategory: 'Clear category',
+    chartHeading: 'Price chart',
+    sortLabel: 'Sort', sortStores: 'Most supermarkets',
+    sortPrice: 'Lowest price', sortUnit: 'Price per unit',
+    continueGoogle: 'Continue with Google', continueApple: 'Continue with Apple', or: 'or',
   },
   tc: {
     h1: '香港超市價格紀錄',
@@ -279,6 +427,16 @@ const T = {
     sourcePrefix: '資料來源：',
     meta: (n, m, start, end) => `${n} 件貨品，${m} 個快照（${start} 至 ${end}）`,
     rangeLabels: { '3M': '3個月', '1Y': '1年', '3Y': '3年', All: '全部' },
+    account: '帳戶', login: '登入', signUp: '註冊', logout: '登出',
+    email: '電郵', password: '密碼', cancel: '取消',
+    myTracker: '我的追蹤', track: '追蹤', untrack: '取消追蹤',
+    noTracked: '尚未追蹤任何產品',
+    confirmSent: '已發送確認電郵',
+    category: '分類', clearCategory: '清除分類',
+    chartHeading: '價格圖表',
+    sortLabel: '排序', sortStores: '有售超市數',
+    sortPrice: '最低價', sortUnit: '單位價格',
+    continueGoogle: '以 Google 繼續', continueApple: '以 Apple 繼續', or: '或',
   },
 };
 const t = () => T[state.lang];
@@ -302,6 +460,8 @@ const STORE_ORDER = Object.keys(STORE_COLORS);
 const storeColor = sm => STORE_COLORS[sm] || '#9e9e9e';
 const storeTag = sm => `<span class="store-tag"><span class="store-dot" style="background:${storeColor(sm)}"></span>${storeLabel(sm)}</span>`;
 const catLabel = c => Array.isArray(c) ? c.join(' › ') : c;
+const ESC_MAP = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
+const escapeHtml = s => s.replace(/[&<>"']/g, c => ESC_MAP[c]);
 
 const RANGES = { '3M': 90, '1Y': 365, '3Y': 1095, 'All': null };
 let chartRange = '1Y';
@@ -333,9 +493,14 @@ function applyLangToPage() {
   document.documentElement.lang = state.lang === 'tc' ? 'zh-Hant' : 'en';
   document.getElementById('pageTitle').textContent = t().h1;
   document.getElementById('search').placeholder = t().searchPlaceholder;
+  document.getElementById('search').setAttribute('aria-label', t().searchPlaceholder);
   document.getElementById('productsHeading').textContent = t().products;
   document.getElementById('dropsHeading').textContent = t().dropsTitle;
   document.getElementById('langToggle').textContent = state.lang === 'tc' ? 'EN' : '繁';
+  document.getElementById('catLabel').textContent = t().category;
+  document.getElementById('catClear').setAttribute('aria-label', t().clearCategory);
+  document.getElementById('sortLabel').textContent = t().sortLabel;
+  renderDetailToggleLabel();
   if (!selectedSummary) {
     document.getElementById('detail').innerHTML = `<div class="detail-empty">${t().selectProduct}</div>`;
   }
@@ -348,13 +513,221 @@ function applyLangToPage() {
 }
 
 function renderAll() {
+  renderSortOptions();
   applyLangToPage();
   renderStoreChips();
   renderCatBtn();
+  renderAccountBtn();
+  renderTrackerChip();
   applyFilters();
   renderDrops();
   if (selectedSummary) renderDetail(selectedSummary);
 }
+
+// Detail chart: starts collapsed on page load so the products list below is
+// immediately visible; auto-expands when a product is selected.
+function renderDetailToggleLabel() {
+  document.getElementById('detailToggleLabel').textContent =
+    selectedSummary ? nameOf(selectedSummary) : t().chartHeading;
+}
+
+function setDetailOpen(open) {
+  state.chartOpen = open;
+  document.getElementById('detailCollapse').classList.toggle('open', open);
+  document.getElementById('detailToggle').setAttribute('aria-expanded', String(open));
+}
+
+document.getElementById('detailToggle').addEventListener('click', () => setDetailOpen(!state.chartOpen));
+
+// --- Accounts + watchlist (Supabase) ---------------------------------------
+// Everything below is a no-op (and renders nothing) when AUTH_ENABLED is false.
+
+function starHTML(code) {
+  if (!AUTH_ENABLED) return '';
+  const tracked = watchlist.has(code);
+  const label = tracked ? t().untrack : t().track;
+  return `<span class="star${tracked ? ' tracked' : ''}" data-code="${code}" role="button" tabindex="0" aria-label="${label}">${tracked ? '★' : '☆'}</span>`;
+}
+
+function syncStars(code) {
+  const tracked = watchlist.has(code);
+  document.querySelectorAll(`.star[data-code="${CSS.escape(code)}"]`).forEach(s => {
+    s.textContent = tracked ? '★' : '☆';
+    s.classList.toggle('tracked', tracked);
+    s.setAttribute('aria-label', tracked ? t().untrack : t().track);
+  });
+}
+
+async function toggleTrack(code) {
+  if (!session) { openAuthModal('login'); return; }
+  const wasTracked = watchlist.has(code);
+  if (wasTracked) watchlist.delete(code); else watchlist.add(code);
+  syncStars(code);
+  try {
+    const { error } = wasTracked
+      ? await sb.from('watchlist').delete().eq('user_id', session.user.id).eq('product_code', code)
+      : await sb.from('watchlist').insert({ user_id: session.user.id, product_code: code });
+    if (error) throw error;
+  } catch {
+    if (wasTracked) watchlist.add(code); else watchlist.delete(code);
+    syncStars(code);
+  }
+  if (state.trackerOnly) applyFilters();
+}
+
+document.addEventListener('keydown', e => {
+  if (e.key !== 'Enter' && e.key !== ' ') return;
+  const star = e.target.closest('.star');
+  if (star) { e.preventDefault(); e.stopPropagation(); toggleTrack(star.dataset.code); }
+});
+
+document.addEventListener('click', e => {
+  const star = e.target.closest('.star');
+  if (star) { e.stopPropagation(); toggleTrack(star.dataset.code); }
+});
+
+function renderAccountBtn() {
+  const btn = document.getElementById('accountBtn');
+  if (!AUTH_ENABLED || !sb) { btn.hidden = true; return; }
+  btn.hidden = false;
+  btn.textContent = session ? session.user.email.split('@')[0] : t().account;
+}
+
+function renderTrackerChip() {
+  const chip = document.getElementById('trackerChip');
+  if (!AUTH_ENABLED || !session) { chip.hidden = true; return; }
+  chip.hidden = false;
+  chip.textContent = t().myTracker;
+  chip.classList.toggle('active', state.trackerOnly);
+}
+
+document.getElementById('accountBtn').addEventListener('click', () => {
+  session ? openAccountModal() : openAuthModal('login');
+});
+document.getElementById('trackerChip').addEventListener('click', () => {
+  state.trackerOnly = !state.trackerOnly;
+  renderTrackerChip();
+  applyFilters();
+});
+document.getElementById('authModal').addEventListener('click', e => {
+  if (e.target.id === 'authModal') closeAuthModal();
+});
+
+let modalOpener = null;
+
+function closeAuthModal() {
+  document.getElementById('authModal').hidden = true;
+  if (modalOpener) { modalOpener.focus(); modalOpener = null; }
+}
+
+function openAuthModal(mode) {
+  modalOpener = document.activeElement;
+  const overlay = document.getElementById('authModal');
+  const submitLabel = mode === 'signup' ? t().signUp : t().login;
+  overlay.innerHTML =
+    `<div class="card modal-card"><h2>${submitLabel}</h2>` +
+    `<div class="auth-error" id="authError" hidden></div>` +
+    `<div class="auth-note" id="authNote" hidden>${t().confirmSent}</div>` +
+    `<div class="oauth-buttons">` +
+    `<button type="button" class="chip oauth-btn" id="oauthGoogle">${t().continueGoogle}</button>` +
+    `<button type="button" class="chip oauth-btn oauth-apple" id="oauthApple">${t().continueApple}</button>` +
+    `</div>` +
+    `<div class="auth-divider"><span>${t().or}</span></div>` +
+    `<input type="email" id="authEmail" placeholder="${t().email}">` +
+    `<input type="password" id="authPassword" placeholder="${t().password}">` +
+    `<div class="modal-actions">` +
+    `<button type="button" class="chip" id="authSubmit">${submitLabel}</button>` +
+    `<button type="button" class="chip" id="authSwitch">${mode === 'signup' ? t().login : t().signUp}</button>` +
+    `<button type="button" class="chip" id="authCancel">${t().cancel}</button>` +
+    `</div></div>`;
+  overlay.hidden = false;
+  document.getElementById('authCancel').onclick = closeAuthModal;
+  document.getElementById('authSwitch').onclick = () => openAuthModal(mode === 'signup' ? 'login' : 'signup');
+  document.getElementById('authSubmit').onclick = () => submitAuth(mode);
+  document.getElementById('oauthGoogle').onclick = () => oauthSignIn('google');
+  document.getElementById('oauthApple').onclick = () => oauthSignIn('apple');
+  document.getElementById('authEmail').focus();
+}
+
+async function oauthSignIn(provider) {
+  if (!sb) return;
+  const errEl = document.getElementById('authError');
+  errEl.hidden = true;
+  try {
+    const { error } = await sb.auth.signInWithOAuth({
+      provider, options: { redirectTo: window.location.origin + window.location.pathname },
+    });
+    if (error) { errEl.textContent = error.message; errEl.hidden = false; }
+  } catch (err) {
+    errEl.textContent = err.message || String(err);
+    errEl.hidden = false;
+  }
+}
+
+async function submitAuth(mode) {
+  if (!sb) return;
+  const email = document.getElementById('authEmail').value.trim();
+  const password = document.getElementById('authPassword').value;
+  const errEl = document.getElementById('authError');
+  errEl.hidden = true;
+  const { error } = mode === 'signup'
+    ? await sb.auth.signUp({ email, password })
+    : await sb.auth.signInWithPassword({ email, password });
+  if (error) {
+    errEl.textContent = error.message;
+    errEl.hidden = false;
+    return;
+  }
+  if (mode === 'signup') {
+    document.getElementById('authNote').hidden = false;
+  } else {
+    closeAuthModal();
+  }
+}
+
+function openAccountModal() {
+  modalOpener = document.activeElement;
+  const overlay = document.getElementById('authModal');
+  overlay.innerHTML =
+    `<div class="card modal-card"><h2>${t().account}</h2>` +
+    `<p class="item-sub" id="accountEmail"></p>` +
+    `<div class="modal-actions">` +
+    `<button type="button" class="chip" id="logoutBtn">${t().logout}</button>` +
+    `<button type="button" class="chip" id="authCancel">${t().cancel}</button>` +
+    `</div></div>`;
+  overlay.hidden = false;
+  document.getElementById('accountEmail').textContent = session.user.email;
+  document.getElementById('authCancel').onclick = closeAuthModal;
+  document.getElementById('logoutBtn').onclick = async () => {
+    await sb.auth.signOut();
+    closeAuthModal();
+  };
+}
+
+async function fetchWatchlist() {
+  const { data, error } = await sb.from('watchlist').select('product_code').eq('user_id', session.user.id);
+  return new Set(error ? [] : data.map(r => r.product_code));
+}
+
+async function initAuth() {
+  if (!AUTH_ENABLED) return;
+  const { data: { session: s } } = await sb.auth.getSession();
+  session = s;
+  if (session) watchlist = await fetchWatchlist();
+  renderAccountBtn();
+  renderTrackerChip();
+  applyFilters();
+  sb.auth.onAuthStateChange(async (_event, s2) => {
+    session = s2;
+    watchlist = session ? await fetchWatchlist() : new Set();
+    if (!session) state.trackerOnly = false;
+    renderAccountBtn();
+    renderTrackerChip();
+    applyFilters();
+    if (selectedSummary) syncStars(selectedSummary.code);
+  });
+}
+if (!AUTH_ENABLED) initAuth();
 
 async function setLang(lang) {
   state.lang = lang;
@@ -469,8 +842,9 @@ function currentCatPath() {
 function renderCatBtn() {
   const path = currentCatPath();
   const btn = document.getElementById('catBtn');
-  btn.textContent = (path.length ? path.join(' › ') : t().allCategories) + ' ▾';
+  document.getElementById('catBtnText').textContent = path.length ? path.join(' › ') : t().allCategories;
   btn.classList.toggle('active', path.length > 0);
+  document.getElementById('catClear').hidden = path.length === 0;
 }
 
 function applyCatPath(path) {
@@ -483,6 +857,17 @@ function applyCatPath(path) {
   renderDrops();
 }
 
+// Mirrors the .star keydown pattern: menu rows are click-only divs, so
+// Enter/Space need an explicit activation handler for keyboard use.
+function setRowActivation(el, onActivate) {
+  el.setAttribute('role', 'menuitem');
+  el.tabIndex = 0;
+  el.onclick = onActivate;
+  el.onkeydown = e => {
+    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onActivate(); }
+  };
+}
+
 function renderCatMenu() {
   const menu = document.getElementById('catMenu');
   menu.innerHTML = '';
@@ -492,7 +877,7 @@ function renderCatMenu() {
     const back = document.createElement('div');
     back.className = 'cat-row cat-back';
     back.textContent = t().back;
-    back.onclick = () => { menuPath.pop(); renderCatMenu(); };
+    setRowActivation(back, () => { menuPath.pop(); renderCatMenu(); });
     menu.appendChild(back);
 
     const label = document.createElement('div');
@@ -504,7 +889,7 @@ function renderCatMenu() {
   const allRow = document.createElement('div');
   allRow.className = 'cat-row';
   allRow.textContent = depth === 0 ? t().allCategories : t().allIn(menuPath[menuPath.length - 1]);
-  allRow.onclick = () => applyCatPath(menuPath);
+  setRowActivation(allRow, () => applyCatPath(menuPath));
   menu.appendChild(allRow);
 
   const sorted = [...catCounts(depth, menuPath).entries()].sort((a, b) => b[1] - a[1]);
@@ -525,9 +910,9 @@ function renderCatMenu() {
       const arrow = document.createElement('span');
       arrow.textContent = '›';
       right.appendChild(arrow);
-      row.onclick = () => { menuPath.push(name); renderCatMenu(); };
+      setRowActivation(row, () => { menuPath.push(name); renderCatMenu(); });
     } else {
-      row.onclick = () => applyCatPath([...menuPath, name]);
+      setRowActivation(row, () => applyCatPath([...menuPath, name]));
     }
     row.appendChild(nameSpan);
     row.appendChild(right);
@@ -540,13 +925,20 @@ function openCatMenu() {
   menuPath = path.slice(0, Math.max(0, path.length - 1));
   renderCatMenu();
   document.getElementById('catMenu').hidden = false;
+  document.getElementById('catBtn').setAttribute('aria-expanded', 'true');
   catMenuOpen = true;
 }
 
 function closeCatMenu() {
   document.getElementById('catMenu').hidden = true;
+  document.getElementById('catBtn').setAttribute('aria-expanded', 'false');
   catMenuOpen = false;
 }
+
+document.getElementById('catClear').addEventListener('click', e => {
+  e.stopPropagation();
+  applyCatPath([]);
+});
 
 document.getElementById('catBtn').addEventListener('click', e => {
   e.stopPropagation();
@@ -558,11 +950,78 @@ document.addEventListener('click', e => {
 });
 
 document.addEventListener('keydown', e => {
-  if (e.key === 'Escape' && catMenuOpen) closeCatMenu();
+  if (e.key !== 'Escape') return;
+  if (catMenuOpen) closeCatMenu();
+  if (!document.getElementById('authModal').hidden) closeAuthModal();
 });
 
 document.getElementById('search').addEventListener('input', e => {
   state.query = e.target.value.trim().toLowerCase();
+  applyFilters();
+});
+
+// ponytail: back-of-envelope unit-price parser, one regex pass over the
+// product name. Handles "330mL", "1.5L", "500g", "1kg", "565 GM",
+// "250mL x 6", and count-only sizes ("6's"/"6pcs"/"6包"/"6片"). Known
+// ceiling: no ranges ("2-3pcs"), no fractions, no units beyond ml/L/g/kg/
+// piece — those fall through to null (sorts last). Upgrade to a real units
+// library if the product catalog grows beyond HK grocery/drugstore SKUs.
+function parseUnitPrice(name, price) {
+  const m = name.match(/(?:(\d+)\s*x\s*)?(\d+(?:\.\d+)?)\s*(mL|ml|ML|L|l|kg|KG|Kg|g|G|GM|gm)\b(?:\s*x\s*(\d+))?/);
+  if (m) {
+    const [, preMult, size, unitRaw, postMult] = m;
+    const n = parseFloat(size) * (parseFloat(preMult || postMult) || 1);
+    if (!n) return null;
+    const unit = unitRaw.toLowerCase();
+    if (unit === 'l') return { value: price / (n * 10), unit: '100ml' };
+    if (unit === 'ml') return { value: price / (n / 100), unit: '100ml' };
+    if (unit === 'kg') return { value: price / (n * 10), unit: '100g' };
+    return { value: price / (n / 100), unit: '100g' };
+  }
+  const cm = name.match(/(\d+)\s*(?:pcs?|'s|包|片)/i);
+  if (cm) {
+    const n = parseFloat(cm[1]);
+    return n ? { value: price / n, unit: 'piece' } : null;
+  }
+  return null;
+}
+
+function unitPriceOf(p) {
+  const price = p.latest_price_range?.[0];
+  return price == null ? null : parseUnitPrice(nameOf(p), price);
+}
+
+function sortProducts(list) {
+  if (state.sort === 'price_asc') {
+    return [...list].sort((a, b) => (a.latest_price_range?.[0] ?? Infinity) - (b.latest_price_range?.[0] ?? Infinity));
+  }
+  if (state.sort === 'unit_asc') {
+    // Group by unit basis first (volume, then weight, then piece, then
+    // unparseable last) — comparing raw $/100ml vs $/100g vs $/piece numbers
+    // is meaningless since they're different quantities.
+    const unitOrder = { '100ml': 0, '100g': 1, piece: 2 };
+    return [...list].sort((a, b) => {
+      const ua = unitPriceOf(a), ub = unitPriceOf(b);
+      const oa = ua ? unitOrder[ua.unit] : 3;
+      const ob = ub ? unitOrder[ub.unit] : 3;
+      if (oa !== ob) return oa - ob;
+      return oa === 3 ? 0 : ua.value - ub.value;
+    });
+  }
+  return [...list].sort((a, b) => b.stores.length - a.stores.length); // stores_desc (default)
+}
+
+function renderSortOptions() {
+  const sel = document.getElementById('sortSelect');
+  sel.innerHTML =
+    `<option value="stores_desc">${t().sortStores}</option>` +
+    `<option value="price_asc">${t().sortPrice}</option>` +
+    `<option value="unit_asc">${t().sortUnit}</option>`;
+  sel.value = state.sort;
+}
+
+document.getElementById('sortSelect').addEventListener('change', e => {
+  state.sort = e.target.value;
   applyFilters();
 });
 
@@ -571,6 +1030,9 @@ function applyFilters() {
   let list = INDEX.products.filter(matchesCat);
   if (state.stores.size) {
     list = list.filter(p => p.stores.some(s => state.stores.has(s)));
+  }
+  if (state.trackerOnly) {
+    list = list.filter(p => watchlist.has(p.code));
   }
   if (state.query) {
     // Search always matches EN + TC name/brand, regardless of active language.
@@ -581,25 +1043,40 @@ function applyFilters() {
       return !!tc && ((tc.name || '').toLowerCase().includes(q) || (tc.brand || '').toLowerCase().includes(q));
     });
   }
+  list = sortProducts(list);
   const shown = Math.min(list.length, 200);
   document.getElementById('resultCount').textContent = t().showing(shown, list.length);
   renderResults(list.slice(0, 200));
+  if (state.trackerOnly && !list.length) {
+    document.getElementById('results').innerHTML = `<div class="item-sub">${t().noTracked}</div>`;
+  }
 }
 
 function renderResults(products) {
   const el = document.getElementById('results');
   el.innerHTML = '';
   for (const p of products) {
-    const btn = document.createElement('button');
-    btn.type = 'button';
+    const up = state.sort === 'unit_asc' ? unitPriceOf(p) : null;
+    const unitLine = state.sort === 'unit_asc'
+      ? `<div class="item-unit">${up ? `$${up.value.toFixed(1)}/${up.unit}` : ''}</div>` : '';
+    // Row is a div (not <button>) because it contains a nested star toggle —
+    // a <button> cannot contain other interactive/tabindex descendants.
+    const btn = document.createElement('div');
+    btn.setAttribute('role', 'button');
+    btn.tabIndex = 0;
     btn.className = 'item' + (p.code === selectedCode ? ' selected' : '');
     btn.innerHTML =
       `<div class="item-row"><div><div class="item-name">${nameOf(p)}</div>` +
       `<div class="item-sub">${brandOf(p)} &middot; ${catLabel(catOf(p))}</div></div>` +
-      `<div class="item-price">${priceLabel(p.latest_price_range)}</div></div>` +
+      `<div class="item-price">${priceLabel(p.latest_price_range)}${starHTML(p.code)}${unitLine}</div>` +
+      `<span class="item-arrow" aria-hidden="true">&rsaquo;</span></div>` +
       `<div class="stores-row">${STORE_ORDER.filter(s => p.stores.includes(s)).map(storeTag).join('')}</div>` +
       `<div class="badges">${badgeSpans(p.badges)}</div>`;
     btn.onclick = () => selectProduct(p, btn);
+    btn.onkeydown = e => {
+      if (e.target !== btn) return; // let the nested star handle its own Enter/Space
+      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); selectProduct(p, btn); }
+    };
     el.appendChild(btn);
   }
 }
@@ -609,9 +1086,11 @@ function selectProduct(p, btnEl) {
   selectedSummary = p;
   document.querySelectorAll('.item.selected').forEach(x => x.classList.remove('selected'));
   if (btnEl) btnEl.classList.add('selected');
+  setDetailOpen(true);
+  renderDetailToggleLabel();
   renderDetail(p);
   if (window.innerWidth < 880) {
-    document.getElementById('detail').scrollIntoView({ behavior: 'smooth' });
+    document.getElementById('detailCard').scrollIntoView({ behavior: 'smooth' });
   }
 }
 
@@ -660,7 +1139,7 @@ async function renderDetail(summary) {
     return;
   }
 
-  el.innerHTML = `<h2>${nameOf(p)}</h2><p class="sub-line">${brandOf(p)} &middot; ${catLabel(catOf(p))}</p>` +
+  el.innerHTML = `<h2>${nameOf(p)}${starHTML(p.code)}</h2><p class="sub-line">${brandOf(p)} &middot; ${catLabel(catOf(p))}</p>` +
     `<div class="chips range-chips" id="rangeChips"></div>` +
     `<div class="chart-wrap"><canvas id="chart"></canvas></div><div class="table-wrap"><table id="latestTable"></table></div>`;
 
@@ -757,7 +1236,7 @@ async function renderDetail(summary) {
     const latest = series[series.length - 1];
     const med = median(series.map(pt => pt[1]));
     const badge = fake.has(sm) ? `<span class="badge fake">${t().badgeFake}</span>` : '';
-    const offer = latest[2] || '';
+    const offer = escapeHtml(latest[2] || '');
     return `<tr><td>${storeLabel(sm)}</td><td class="num">$${latest[1].toFixed(2)}</td><td class="num">$${med.toFixed(2)}</td>` +
       `<td class="promo" title="${offer}">${offer}</td><td>${badge}</td></tr>`;
   }).join('');
