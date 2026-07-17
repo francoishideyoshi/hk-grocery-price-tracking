@@ -864,6 +864,16 @@ function matchesCat(p) {
   return true;
 }
 
+// Search always matches EN + TC name/brand, regardless of active language.
+// Shared by the products list and the drops panel.
+function matchesSearch(p) {
+  if (!p) return false;
+  const q = state.query;
+  if (p.name.toLowerCase().includes(q) || p.brand.toLowerCase().includes(q)) return true;
+  const tc = tcOf(p.code);
+  return !!tc && ((tc.name || '').toLowerCase().includes(q) || (tc.brand || '').toLowerCase().includes(q));
+}
+
 function currentCatPath() {
   return [state.cat1, state.cat2, state.cat3].filter(Boolean);
 }
@@ -987,6 +997,7 @@ document.addEventListener('keydown', e => {
 document.getElementById('search').addEventListener('input', e => {
   state.query = e.target.value.trim().toLowerCase();
   applyFilters();
+  renderDrops();
 });
 
 // ponytail: back-of-envelope unit-price parser, one regex pass over the
@@ -1063,15 +1074,7 @@ function applyFilters() {
   if (state.trackerOnly) {
     list = list.filter(p => watchlist.has(p.code));
   }
-  if (state.query) {
-    // Search always matches EN + TC name/brand, regardless of active language.
-    const q = state.query;
-    list = list.filter(p => {
-      if (p.name.toLowerCase().includes(q) || p.brand.toLowerCase().includes(q)) return true;
-      const tc = tcOf(p.code);
-      return !!tc && ((tc.name || '').toLowerCase().includes(q) || (tc.brand || '').toLowerCase().includes(q));
-    });
-  }
+  if (state.query) list = list.filter(matchesSearch);
   list = sortProducts(list);
   const shown = Math.min(list.length, 200);
   document.getElementById('resultCount').textContent = t().showing(shown, list.length);
@@ -1123,25 +1126,49 @@ function selectProduct(p, btnEl) {
   }
 }
 
+// Formats a set of per-store values as "-X" when all stores agree, or
+// "-min ~ -max" when they differ (values are always positive drop magnitudes).
+function dropRangeLabel(vals, fmt) {
+  const min = Math.min(...vals), max = Math.max(...vals);
+  return min === max ? fmt(min) : `${fmt(min)} ~ ${fmt(max)}`;
+}
+
 function renderDrops() {
   const el = document.getElementById('drops');
   el.innerHTML = '';
-  const drops = INDEX.drops.filter(d =>
-    (!state.stores.size || state.stores.has(d.store)) && matchesCat(PRODUCT_BY_CODE.get(d.code))
+  const entries = INDEX.drops.filter(d => {
+    const p = PRODUCT_BY_CODE.get(d.code);
+    if (!matchesCat(p)) return false;
+    if (state.stores.size && !state.stores.has(d.store)) return false;
+    if (state.query && !matchesSearch(p)) return false;
+    return true;
+  });
+  // Same product code can drop in multiple chains — group into one row per
+  // product, keeping every store's entry so pct/$ can be shown as ranges.
+  const groups = new Map();
+  for (const d of entries) {
+    if (!groups.has(d.code)) groups.set(d.code, { code: d.code, name: d.name, entries: [] });
+    groups.get(d.code).entries.push(d);
+  }
+  const rows = [...groups.values()].sort((a, b) =>
+    Math.max(...b.entries.map(d => d.pct)) - Math.max(...a.entries.map(d => d.pct))
   );
-  for (const d of drops.slice(0, 20)) {
+  for (const row of rows.slice(0, 20)) {
+    const stores = STORE_ORDER.filter(s => row.entries.some(d => d.store === s));
+    const pctLabel = dropRangeLabel(row.entries.map(d => d.pct), v => `-${v.toFixed(0)}%`);
+    const decLabel = dropRangeLabel(row.entries.map(d => d.median - d.latest), v => `-$${v.toFixed(2)}`);
     const btn = document.createElement('button');
     btn.type = 'button';
     btn.className = 'item drop-item';
-    btn.innerHTML = `<span class="drop-item-main">${thumbHTML(d.code)}<span>${nameOf(d)} ${storeTag(d.store)}</span></span>` +
-      `<span class="badge drop">-${d.pct.toFixed(0)}% $${d.latest.toFixed(2)}</span>`;
+    btn.innerHTML = `<span class="drop-item-main">${thumbHTML(row.code)}<span>${nameOf(row)} ${stores.map(storeTag).join('')}</span></span>` +
+      `<span class="badge drop">${pctLabel} ${decLabel}</span>`;
     btn.onclick = () => {
-      const p = INDEX.products.find(x => x.code === d.code);
+      const p = INDEX.products.find(x => x.code === row.code);
       if (p) selectProduct(p, null);
     };
     el.appendChild(btn);
   }
-  if (!drops.length) el.innerHTML = `<div class="item-sub">${t().noneMatch}</div>`;
+  if (!rows.length) el.innerHTML = `<div class="item-sub">${t().noneMatch}</div>`;
 }
 
 function median(nums) {
