@@ -1156,7 +1156,7 @@ function renderDrops() {
   for (const row of rows.slice(0, 20)) {
     const stores = STORE_ORDER.filter(s => row.entries.some(d => d.store === s));
     const pctLabel = dropRangeLabel(row.entries.map(d => d.pct), v => `-${v.toFixed(0)}%`);
-    const decLabel = dropRangeLabel(row.entries.map(d => d.median - d.latest), v => `-$${v.toFixed(2)}`);
+    const decLabel = dropRangeLabel(row.entries.map(d => d.latest), v => `$${v.toFixed(2)}`);
     const btn = document.createElement('button');
     btn.type = 'button';
     btn.className = 'item drop-item';
