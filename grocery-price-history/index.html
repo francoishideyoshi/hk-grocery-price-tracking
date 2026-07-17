@@ -169,8 +169,18 @@
   .item-arrow { color: var(--muted); font-size: .8rem; align-self: center; }
   .badges { margin-top: .3rem; display: flex; gap: .25rem; flex-wrap: wrap; }
 
+  .item-main { display: flex; align-items: center; gap: .5rem; min-width: 0; flex: 1 1 auto; }
+  .thumb {
+    display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+    width: 40px; height: 40px; border-radius: 8px;
+    background: var(--hover-bg); border: 1px solid var(--border); overflow: hidden;
+  }
+  .thumb img { max-width: 100%; max-height: 100%; object-fit: contain; }
+  .thumb.thumb-detail { width: 64px; height: 64px; border-radius: 10px; }
+
   .drop-item { display: flex; justify-content: space-between; align-items: center; gap: .5rem; }
   .drop-item small { color: var(--muted); }
+  .drop-item-main { display: flex; align-items: center; gap: .5rem; min-width: 0; flex: 1 1 auto; }
 
   @media (prefers-reduced-motion: reduce) {
     .item, .chip, .cat-chevron, .detail-collapse, .detail-toggle .chevron { transition: none; }
@@ -200,6 +210,7 @@
   .detail-collapse-inner .detail { padding: 0 .75rem .75rem; }
 
   .detail { min-height: 480px; }
+  .detail-head { display: flex; align-items: flex-start; gap: .6rem; }
   .detail h2 { margin: 0 0 .1rem; font-size: 1.1rem; }
   .detail .sub-line { color: var(--muted); font-size: .85rem; margin: 0 0 .75rem; }
   .detail-empty, .detail-loading, .detail-error {
@@ -351,6 +362,23 @@ if (AUTH_ENABLED) {
     initAuth();
   };
   document.head.appendChild(sbScript);
+}
+
+// Product photos: flat code -> OPW photoRedirect path map, built by another
+// pipeline. Feature-flag style — site works identically if this 404s or is
+// absent (empty map, no thumbnails rendered).
+let IMAGES = {};
+fetch('./images.json').then(r => r.ok ? r.json() : {}).then(d => {
+  IMAGES = d || {};
+  if (INDEX) renderAll();
+}).catch(() => {});
+
+function thumbHTML(code, extraClass) {
+  const path = IMAGES[code];
+  const img = path
+    ? `<img src="https://online-price-watch.consumer.org.hk${path}" loading="lazy" referrerpolicy="no-referrer" onerror="this.remove()">`
+    : '';
+  return `<span class="thumb${extraClass ? ' ' + extraClass : ''}">${img}</span>`;
 }
 
 let INDEX = null;
@@ -1067,8 +1095,8 @@ function renderResults(products) {
     btn.tabIndex = 0;
     btn.className = 'item' + (p.code === selectedCode ? ' selected' : '');
     btn.innerHTML =
-      `<div class="item-row"><div><div class="item-name">${nameOf(p)}</div>` +
-      `<div class="item-sub">${brandOf(p)} &middot; ${catLabel(catOf(p))}</div></div>` +
+      `<div class="item-row"><div class="item-main">${thumbHTML(p.code)}<div><div class="item-name">${nameOf(p)}</div>` +
+      `<div class="item-sub">${brandOf(p)} &middot; ${catLabel(catOf(p))}</div></div></div>` +
       `<div class="item-price">${priceLabel(p.latest_price_range)}${starHTML(p.code)}${unitLine}</div>` +
       `<span class="item-arrow" aria-hidden="true">&rsaquo;</span></div>` +
       `<div class="stores-row">${STORE_ORDER.filter(s => p.stores.includes(s)).map(storeTag).join('')}</div>` +
@@ -1105,7 +1133,7 @@ function renderDrops() {
     const btn = document.createElement('button');
     btn.type = 'button';
     btn.className = 'item drop-item';
-    btn.innerHTML = `<span>${nameOf(d)} ${storeTag(d.store)}</span>` +
+    btn.innerHTML = `<span class="drop-item-main">${thumbHTML(d.code)}<span>${nameOf(d)} ${storeTag(d.store)}</span></span>` +
       `<span class="badge drop">-${d.pct.toFixed(0)}% $${d.latest.toFixed(2)}</span>`;
     btn.onclick = () => {
       const p = INDEX.products.find(x => x.code === d.code);
@@ -1126,7 +1154,8 @@ let chart = null;
 
 async function renderDetail(summary) {
   const el = document.getElementById('detail');
-  el.innerHTML = `<h2>${nameOf(summary)}</h2><p class="sub-line">${brandOf(summary)} &middot; ${catLabel(catOf(summary))}</p>` +
+  el.innerHTML = `<div class="detail-head">${thumbHTML(summary.code, 'thumb-detail')}<div><h2>${nameOf(summary)}</h2>` +
+    `<p class="sub-line">${brandOf(summary)} &middot; ${catLabel(catOf(summary))}</p></div></div>` +
     `<div class="detail-loading">${t().loading}</div>`;
 
   let p;
@@ -1140,7 +1169,8 @@ async function renderDetail(summary) {
     return;
   }
 
-  el.innerHTML = `<h2>${nameOf(p)}${starHTML(p.code)}</h2><p class="sub-line">${brandOf(p)} &middot; ${catLabel(catOf(p))}</p>` +
+  el.innerHTML = `<div class="detail-head">${thumbHTML(p.code, 'thumb-detail')}<div><h2>${nameOf(p)}${starHTML(p.code)}</h2>` +
+    `<p class="sub-line">${brandOf(p)} &middot; ${catLabel(catOf(p))}</p></div></div>` +
     `<div class="chips range-chips" id="rangeChips"></div>` +
     `<div class="chart-wrap"><canvas id="chart"></canvas></div><div class="table-wrap"><table id="latestTable"></table></div>`;
 
