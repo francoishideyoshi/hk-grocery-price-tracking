@@ -428,8 +428,9 @@ const T = {
     loading: 'Loading price history...',
     loadFailed: err => `Failed to load price history: ${err}`,
     thChain: 'Chain', thLatest: 'Latest', thMedian: 'Series median', thOffer: 'Offer',
-    badgeFake: 'fake discount', badgeDrop: 'drop',
-    fakeLabel: store => `fake discount: ${store}`,
+    badgeFake: 'promo, not cheaper', badgeDrop: 'drop',
+    fakeTitle: 'Tagged as an offer, but the current price is not below its typical price over the past 90 days.',
+    fakeLabel: store => `promo, not cheaper: ${store}`,
     dropLabel: store => `drop: ${store}`,
     sourcePrefix: 'Source: ',
     meta: (n, m, start, end) => `${n} products, ${m} snapshots (${start} to ${end})`,
@@ -459,8 +460,9 @@ const T = {
     loading: '載入價格紀錄中⋯',
     loadFailed: err => `載入失敗：${err}`,
     thChain: '超市', thLatest: '最新價', thMedian: '全期中位數', thOffer: '優惠',
-    badgeFake: '假折扣', badgeDrop: '減價',
-    fakeLabel: store => `假折扣：${store}`,
+    badgeFake: '優惠但未減價', badgeDrop: '減價',
+    fakeTitle: '標示為優惠，但現價並不低於近90日的一般價格。',
+    fakeLabel: store => `優惠但未減價：${store}`,
     dropLabel: store => `減價：${store}`,
     sourcePrefix: '資料來源：',
     meta: (n, m, start, end) => `${n} 件貨品，${m} 個快照（${start} 至 ${end}）`,
@@ -807,7 +809,7 @@ function badgeSpans(badges) {
   return badges.map(b => {
     const [kind, store] = b.split(':');
     return kind === 'fake'
-      ? `<span class="badge fake">${t().fakeLabel(storeLabel(store))}</span>`
+      ? `<span class="badge fake" title="${t().fakeTitle}">${t().fakeLabel(storeLabel(store))}</span>`
       : `<span class="badge drop">${t().dropLabel(storeLabel(store))}</span>`;
   }).join('');
 }
@@ -1302,7 +1304,7 @@ async function renderDetail(summary) {
   const rows = seriesEntries.map(([sm, series]) => {
     const latest = series[series.length - 1];
     const med = median(series.map(pt => pt[1]));
-    const badge = fake.has(sm) ? `<span class="badge fake">${t().badgeFake}</span>` : '';
+    const badge = fake.has(sm) ? `<span class="badge fake" title="${t().fakeTitle}">${t().badgeFake}</span>` : '';
     const offer = escapeHtml(latest[2] || '');
     return `<tr><td>${storeLabel(sm)}</td><td class="num">$${latest[1].toFixed(2)}</td><td class="num">$${med.toFixed(2)}</td>` +
       `<td class="promo" title="${offer}">${offer}</td><td>${badge}</td></tr>`;
