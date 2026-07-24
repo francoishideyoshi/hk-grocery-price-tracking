@@ -336,6 +336,7 @@ def build_index(state: dict) -> dict:
                 drops.append({
                     "code": code, "name": product["name"], "store": store,
                     "latest": latest_price, "median": round(med, 2), "pct": round(pct, 1),
+                    "date": series[-1][0],  # date the current (low) price took effect
                 })
         summaries.append({
             "code": code,

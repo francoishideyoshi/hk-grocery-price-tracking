@@ -188,6 +188,23 @@
   .drop-item { display: flex; justify-content: space-between; align-items: center; gap: .5rem; }
   .drop-item small { color: var(--muted); }
   .drop-item-main { display: flex; align-items: center; gap: .5rem; min-width: 0; flex: 1 1 auto; }
+  .drop-item-text { display: flex; flex-direction: column; min-width: 0; }
+  .drop-item-right { display: flex; flex-direction: column; align-items: flex-end; gap: .2rem; flex-shrink: 0; }
+  .drop-date { font-size: .72rem; color: var(--muted); white-space: nowrap; }
+  .cat-picker-primary .cat-btn { font-weight: 600; }
+  /* products list shows ~15 rows then scrolls; cap lifts while an inline detail/chart is open so the chart isn't clipped */
+  .list.capped { max-height: min(88rem, 82vh); overflow-y: auto; }
+  .collapse-btn {
+    display: inline-flex; align-items: center; justify-content: center;
+    min-width: 2.75rem; min-height: 2.75rem; border: none; background: none;
+    color: var(--muted); cursor: pointer; border-radius: 8px; flex-shrink: 0;
+  }
+  .collapse-btn:hover { background: var(--hover-bg); color: var(--fg); }
+  .collapse-btn[aria-expanded="false"] .cat-chevron { transform: rotate(-90deg); }
+  #productsCard.collapsed .result-count,
+  #productsCard.collapsed #results,
+  #productsCard.collapsed .sort-control { display: none; }
+  .store-picker .cat-row input[type=checkbox] { pointer-events: none; }
 
   @media (prefers-reduced-motion: reduce) {
     .item, .chip, .cat-chevron { transition: none; }
@@ -324,8 +341,7 @@
 </header>
 
 <div class="filter-bar">
-  <div class="chips" id="storeChips"></div>
-  <div class="cat-picker">
+  <div class="cat-picker cat-picker-primary">
     <span class="cat-label" id="catLabel">Category</span>
     <button type="button" class="chip cat-btn" id="catBtn" aria-haspopup="true" aria-expanded="false">
       <span id="catBtnText">All categories</span><span class="cat-chevron" aria-hidden="true">&#9662;</span>
@@ -333,13 +349,20 @@
     <button type="button" class="cat-clear" id="catClear" hidden>&times;</button>
     <div class="cat-menu" id="catMenu" hidden></div>
   </div>
+  <div class="cat-picker store-picker">
+    <button type="button" class="chip cat-btn" id="storeBtn" aria-haspopup="true" aria-expanded="false">
+      <span id="storeBtnText">All supermarkets</span><span class="cat-chevron" aria-hidden="true">&#9662;</span>
+    </button>
+    <div class="cat-menu" id="storeMenu" hidden></div>
+  </div>
   <button type="button" class="chip" id="trackerChip" hidden></button>
 </div>
 
 <div class="layout">
   <div class="below-grid">
-    <div class="card">
+    <div class="card" id="productsCard">
       <div class="products-head">
+        <button type="button" class="collapse-btn" id="productsCollapse" aria-expanded="true" aria-label="Collapse products"><span class="cat-chevron" aria-hidden="true">&#9662;</span></button>
         <h2 id="productsHeading">Products</h2>
         <div class="sort-control">
           <label for="sortSelect" id="sortLabel">Sort</label>
@@ -458,6 +481,7 @@ const T = {
     chartHeading: 'Price chart',
     sortLabel: 'Sort', sortStores: 'Most supermarkets',
     sortPrice: 'Lowest price', sortUnit: 'Price per unit',
+    allStores: 'All supermarkets', noStores: 'No supermarkets', storesSelected: n => `${n} supermarkets`,
     continueGoogle: 'Continue with Google', continueApple: 'Continue with Apple', or: 'or',
     communityPrices: 'Community prices', addSighting: '＋ Report a cheaper price',
     shopName: 'Shop name', pricePaid: 'Price paid ($)', district: 'District', noteOptional: 'Note (optional)',
@@ -495,6 +519,7 @@ const T = {
     chartHeading: '價格圖表',
     sortLabel: '排序', sortStores: '有售超市數',
     sortPrice: '最低價', sortUnit: '單位價格',
+    allStores: '所有超市', noStores: '沒有超市', storesSelected: n => `已選 ${n} 間超市`,
     continueGoogle: '以 Google 繼續', continueApple: '以 Apple 繼續', or: '或',
     communityPrices: '街坊回報價格', addSighting: '＋ 回報更平價格',
     shopName: '店舖名稱', pricePaid: '付款金額（$）', district: '地區', noteOptional: '備註（可選）',
@@ -521,6 +546,8 @@ const STORE_COLORS = {
   DCHFOOD: '#6d4c41', LUNGFUNG: '#c2185b', SASA: '#9e9d24',
 };
 const STORE_ORDER = Object.keys(STORE_COLORS);
+// stores = the set of CHECKED (included) supermarkets; all checked by default.
+STORE_ORDER.forEach(s => state.stores.add(s));
 const storeColor = sm => STORE_COLORS[sm] || '#9e9e9e';
 const storeTag = sm => `<span class="store-tag"><span class="store-dot" style="background:${storeColor(sm)}"></span>${storeLabel(sm)}</span>`;
 
@@ -589,7 +616,7 @@ function applyLangToPage() {
 function renderAll() {
   renderSortOptions();
   applyLangToPage();
-  renderStoreChips();
+  renderStoreBtn();
   renderCatBtn();
   renderAccountBtn();
   renderTrackerChip();
@@ -889,25 +916,78 @@ function makeChip(html, count, active) {
   return b;
 }
 
-function renderStoreChips() {
-  const el = document.getElementById('storeChips');
-  el.innerHTML = '';
+function storeBtnText() {
+  const n = state.stores.size, total = STORE_ORDER.length;
+  if (n === total) return t().allStores;
+  if (n === 0) return t().noStores;
+  return t().storesSelected(n);
+}
+
+function renderStoreBtn() {
+  document.getElementById('storeBtnText').textContent = storeBtnText();
+  document.getElementById('storeBtn').classList.toggle('active', state.stores.size !== STORE_ORDER.length);
+}
+
+function renderStoreMenu() {
+  const menu = document.getElementById('storeMenu');
+  menu.innerHTML = '';
+  const allOn = state.stores.size === STORE_ORDER.length;
+  const allRow = document.createElement('div');
+  allRow.className = 'cat-row';
+  allRow.innerHTML = `<span>${t().allStores}</span><input type="checkbox" ${allOn ? 'checked' : ''} tabindex="-1" aria-hidden="true">`;
+  setRowActivation(allRow, () => {
+    if (allOn) state.stores.clear(); else STORE_ORDER.forEach(s => state.stores.add(s));
+    afterStoreChange();
+  });
+  menu.appendChild(allRow);
   for (const sm of STORE_ORDER) {
-    const chip = makeChip(
-      `<span class="store-dot" style="background:${storeColor(sm)}"></span>${storeLabel(sm)}`,
-      null, state.stores.has(sm)
-    );
-    chip.onclick = () => toggleStore(sm);
-    el.appendChild(chip);
+    const on = state.stores.has(sm);
+    const row = document.createElement('div');
+    row.className = 'cat-row';
+    row.innerHTML = `<span><span class="store-dot" style="background:${storeColor(sm)}"></span>${storeLabel(sm)}</span>` +
+      `<input type="checkbox" ${on ? 'checked' : ''} tabindex="-1" aria-hidden="true">`;
+    setRowActivation(row, () => toggleStore(sm));
+    menu.appendChild(row);
   }
+}
+
+function afterStoreChange() {
+  renderStoreBtn();
+  renderStoreMenu();
+  applyFilters(); // also re-renders the open inline detail so its chart reflects the new store filter
+  renderDrops();
 }
 
 function toggleStore(sm) {
   if (state.stores.has(sm)) state.stores.delete(sm); else state.stores.add(sm);
-  renderStoreChips();
-  applyFilters(); // also re-renders the open inline detail so its chart reflects the new store filter
-  renderDrops();
+  afterStoreChange();
 }
+
+let storeMenuOpen = false;
+function openStoreMenu() {
+  renderStoreMenu();
+  document.getElementById('storeMenu').hidden = false;
+  document.getElementById('storeBtn').setAttribute('aria-expanded', 'true');
+  storeMenuOpen = true;
+}
+function closeStoreMenu() {
+  document.getElementById('storeMenu').hidden = true;
+  document.getElementById('storeBtn').setAttribute('aria-expanded', 'false');
+  storeMenuOpen = false;
+}
+document.getElementById('storeBtn').addEventListener('click', e => {
+  e.stopPropagation();
+  storeMenuOpen ? closeStoreMenu() : openStoreMenu();
+});
+document.addEventListener('click', e => {
+  if (storeMenuOpen && !e.composedPath().includes(document.querySelector('.store-picker'))) closeStoreMenu();
+});
+
+document.getElementById('productsCollapse').addEventListener('click', () => {
+  const card = document.getElementById('productsCard');
+  const collapsed = card.classList.toggle('collapsed');
+  document.getElementById('productsCollapse').setAttribute('aria-expanded', String(!collapsed));
+});
 
 // Counts distinct category[depth] values among products whose category[0..depth-1]
 // matches parentVals — feeds each dependent select with only its valid children.
@@ -1062,6 +1142,7 @@ document.addEventListener('click', e => {
 document.addEventListener('keydown', e => {
   if (e.key !== 'Escape') return;
   if (catMenuOpen) closeCatMenu();
+  if (storeMenuOpen) closeStoreMenu();
   if (!document.getElementById('authModal').hidden) closeAuthModal();
 });
 
@@ -1139,9 +1220,7 @@ document.getElementById('sortSelect').addEventListener('change', e => {
 function applyFilters() {
   if (!INDEX) return;
   let list = INDEX.products.filter(matchesCat);
-  if (state.stores.size) {
-    list = list.filter(p => p.stores.some(s => state.stores.has(s)));
-  }
+  list = list.filter(p => p.stores.some(s => state.stores.has(s)));
   if (state.trackerOnly) {
     list = list.filter(p => watchlist.has(p.code));
   }
@@ -1197,12 +1276,15 @@ function renderResults(products) {
     };
     el.appendChild(btn);
   }
+  // ~15-row scroll cap, lifted while an inline detail/chart is open (below).
+  el.classList.toggle('capped', !selectedCode);
 }
 
 // Inserts the accordion detail region right after rowEl (or, if rowEl is
 // null — e.g. a drops-list click whose product fell outside the 200-row cap
 // / current filters — at the top of #results as a standalone panel).
 function openInlineDetail(rowEl, summary) {
+  document.getElementById('results').classList.remove('capped');
   const wrap = document.createElement('div');
   wrap.className = 'item-detail';
   wrap.innerHTML = '<div class="detail" id="detail"></div>';
@@ -1220,6 +1302,7 @@ function openInlineDetail(rowEl, summary) {
 function removeInlineDetail() {
   document.querySelector('.item-detail')?.remove();
   document.querySelectorAll('.item.selected').forEach(x => x.classList.remove('selected'));
+  document.getElementById('results').classList.add('capped');
 }
 
 function selectProduct(p, rowEl) {
@@ -1250,7 +1333,7 @@ function renderDrops() {
   const entries = INDEX.drops.filter(d => {
     const p = PRODUCT_BY_CODE.get(d.code);
     if (!matchesCat(p)) return false;
-    if (state.stores.size && !state.stores.has(d.store)) return false;
+    if (!state.stores.has(d.store)) return false;
     if (state.query && !matchesSearch(p)) return false;
     return true;
   });
@@ -1258,24 +1341,44 @@ function renderDrops() {
   // product, keeping every store's entry so pct/$ can be shown as ranges.
   const groups = new Map();
   for (const d of entries) {
-    if (!groups.has(d.code)) groups.set(d.code, { code: d.code, name: d.name, entries: [] });
+    if (!groups.has(d.code)) {
+      groups.set(d.code, { code: d.code, name: d.name, product: PRODUCT_BY_CODE.get(d.code), entries: [] });
+    }
     groups.get(d.code).entries.push(d);
   }
-  const rows = [...groups.values()].sort((a, b) =>
-    Math.max(...b.entries.map(d => d.pct)) - Math.max(...a.entries.map(d => d.pct))
-  );
+  // When the drop happened: prefer the drop entry's own date, else fall back to
+  // the product's last_seen (d.date is added by backfill.py; older index.json
+  // that predates it still gets a date via last_seen). Use the most recent
+  // date across a product's store entries.
+  const dropDate = row => row.entries
+    .map(d => d.date || row.product?.last_seen || '')
+    .filter(Boolean).sort().pop() || '';
+  const rows = [...groups.values()].sort((a, b) => {
+    const cmp = dropDate(b).localeCompare(dropDate(a)); // most recent first
+    if (cmp) return cmp;
+    return Math.max(...b.entries.map(d => d.pct)) - Math.max(...a.entries.map(d => d.pct));
+  });
   for (const row of rows.slice(0, 20)) {
+    const p = row.product;
     const stores = STORE_ORDER.filter(s => row.entries.some(d => d.store === s));
     const pctLabel = dropRangeLabel(row.entries.map(d => d.pct), v => `-${v.toFixed(0)}%`);
     const decLabel = dropRangeLabel(row.entries.map(d => d.latest), v => `$${v.toFixed(2)}`);
+    const date = dropDate(row);
     const btn = document.createElement('button');
     btn.type = 'button';
     btn.className = 'item drop-item';
-    btn.innerHTML = `<span class="drop-item-main">${thumbHTML(row.code)}<span>${nameOf(row)} ${stores.map(storeTag).join('')}</span></span>` +
-      `<span class="badge drop">${pctLabel} ${decLabel}</span>`;
+    btn.innerHTML =
+      `<span class="drop-item-main">${thumbHTML(row.code)}<span class="drop-item-text">` +
+        `<span class="item-name">${p ? nameOf(p) : row.name}</span>` +
+        `<span class="item-sub">${p ? `${brandOf(p)} &middot; ${catLabel(catOf(p))}` : ''}</span>` +
+        `<span class="stores-row">${stores.map(storeTag).join('')}</span>` +
+      `</span></span>` +
+      `<span class="drop-item-right"><span class="badge drop">${pctLabel} ${decLabel}</span>` +
+        (date ? `<span class="drop-date">${date}</span>` : '') +
+      `</span>`;
     btn.onclick = () => {
-      const p = INDEX.products.find(x => x.code === row.code);
-      if (p) selectProduct(p, null);
+      const prod = INDEX.products.find(x => x.code === row.code);
+      if (prod) selectProduct(prod, null);
     };
     el.appendChild(btn);
   }
