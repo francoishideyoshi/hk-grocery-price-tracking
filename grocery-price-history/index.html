@@ -73,11 +73,8 @@
 
   .layout { display: block; padding: 1rem; max-width: none; }
 
-  .below-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-top: 1rem; }
-  .below-grid > .card { min-width: 0; } /* grid items default to min-width:auto, which lets an unshrinkable descendant blow out the whole grid */
-  @media (max-width: 880px) {
-    .below-grid { grid-template-columns: 1fr; }
-  }
+  /* products list is now full-width (chart expands inline under a row and needs the room); drops sits full-width below it. */
+  .below-grid { display: flex; flex-direction: column; gap: 1rem; margin-top: 1rem; }
 
   .card {
     background: var(--card-bg); border: 1px solid var(--border);
@@ -159,7 +156,8 @@
 
   .result-count { font-size: .75rem; color: var(--muted); margin: 0 0 .5rem; }
 
-  .list { max-height: 420px; overflow-y: auto; display: flex; flex-direction: column; gap: .4rem; }
+  .list { display: flex; flex-direction: column; gap: .4rem; }
+  .drops-list { max-height: 420px; overflow-y: auto; } /* products list lost its cap so the inline chart isn't clipped; drops list keeps the old scroll cap */
   .item {
     display: block; width: 100%; min-height: 2.75rem; text-align: left; padding: .6rem .7rem;
     border: 1px solid var(--border); border-radius: 10px; background: var(--card-bg);
@@ -192,7 +190,7 @@
   .drop-item-main { display: flex; align-items: center; gap: .5rem; min-width: 0; flex: 1 1 auto; }
 
   @media (prefers-reduced-motion: reduce) {
-    .item, .chip, .cat-chevron, .detail-collapse, .detail-toggle .chevron { transition: none; }
+    .item, .chip, .cat-chevron { transition: none; }
   }
 
   .badge {
@@ -202,27 +200,17 @@
   .badge.fake { background: var(--amber-bg); color: var(--amber-fg); }
   .badge.drop { background: var(--green-bg); color: var(--green-fg); }
 
-  .detail-card { padding: 0; }
-  .detail-toggle {
-    display: flex; width: 100%; align-items: center; justify-content: space-between;
-    min-height: 2.75rem; padding: .75rem; margin: 0; border: none; border-radius: 12px;
-    background: none; color: var(--fg); font: inherit; font-weight: 600; cursor: pointer;
+  /* accordion detail region, inserted as a sibling right after the selected .item row */
+  .item-detail {
+    border: 1px solid var(--accent); border-radius: 10px; background: var(--card-bg);
+    padding: .75rem; box-shadow: var(--shadow);
   }
-  .detail-toggle:hover { background: var(--hover-bg); }
-  .detail-toggle .chevron { color: var(--muted); transition: transform .15s ease; }
-  .detail-toggle[aria-expanded="true"] .chevron { transform: rotate(180deg); }
-  .detail-collapse {
-    display: grid; grid-template-rows: 0fr; transition: grid-template-rows .25s ease;
-  }
-  .detail-collapse.open { grid-template-rows: 1fr; }
-  .detail-collapse-inner { overflow: hidden; min-height: 0; }
-  .detail-collapse-inner .detail { padding: 0 .75rem .75rem; }
 
   .detail { min-height: 480px; }
   .detail-head { display: flex; align-items: flex-start; gap: .6rem; }
   .detail h2 { margin: 0 0 .1rem; font-size: 1.1rem; }
   .detail .sub-line { color: var(--muted); font-size: .85rem; margin: 0 0 .75rem; }
-  .detail-empty, .detail-loading, .detail-error {
+  .detail-loading, .detail-error {
     color: var(--muted); text-align: center; padding: 3rem 1rem;
   }
   .range-chips { margin: 0 0 .75rem; }
@@ -240,6 +228,44 @@
   td.promo { max-width: 140px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
   .table-wrap { overflow-x: auto; }
+
+  .savings-callout {
+    margin: 0 0 .75rem; padding: .65rem .85rem; border-radius: 10px;
+    background: var(--green-bg); color: var(--green-fg); font-size: .85rem; font-weight: 600;
+  }
+
+  .community-heading {
+    font-size: .72rem; text-transform: uppercase; letter-spacing: .04em;
+    font-weight: 600; color: var(--muted); margin: 1.25rem 0 .5rem;
+  }
+  .sightings-list { display: flex; flex-direction: column; gap: .5rem; margin-bottom: .5rem; }
+  .sighting-row {
+    border: 1px solid var(--border); border-radius: 10px; padding: .5rem .65rem;
+    background: var(--card-bg);
+  }
+  .sighting-row.dimmed { opacity: .55; }
+  .sighting-main { display: flex; align-items: baseline; gap: .5rem; flex-wrap: wrap; }
+  .sighting-shop { font-weight: 600; font-size: .88rem; }
+  .sighting-price { font-weight: 700; color: var(--accent); font-size: .9rem; }
+  .sighting-district { color: var(--muted); font-size: .78rem; }
+  .sighting-note { color: var(--muted); font-size: .8rem; margin-top: .2rem; }
+  .sighting-foot { display: flex; align-items: center; justify-content: space-between; gap: .5rem; margin-top: .35rem; }
+  .sighting-time { color: var(--muted); font-size: .72rem; }
+  .sighting-votes { display: flex; align-items: center; gap: .1rem; }
+  .vote-btn, .report-btn {
+    display: inline-flex; align-items: center; justify-content: center;
+    min-width: 2.75rem; min-height: 2.75rem; border: none; background: none;
+    color: var(--muted); font-size: 1rem; cursor: pointer; border-radius: 50%; font: inherit;
+  }
+  .vote-btn:hover, .report-btn:hover { background: var(--hover-bg); }
+  .vote-btn.active { color: var(--accent); }
+  .report-btn.active { color: var(--error-fg); }
+  .vote-score { min-width: 1.4rem; text-align: center; font-size: .8rem; font-weight: 600; }
+  .sighting-form { display: flex; flex-direction: column; gap: .5rem; margin-top: .6rem; max-width: 320px; }
+  .sighting-form input, .sighting-form select {
+    min-height: 2.75rem; padding: .5rem .75rem; font-size: 1rem; font: inherit;
+    border: 1px solid var(--border); border-radius: 8px; background: var(--bg); color: var(--fg);
+  }
 
   @media (max-width: 640px) {
     .layout { padding: .75rem; }
@@ -311,18 +337,6 @@
 </div>
 
 <div class="layout">
-  <div class="card detail-card" id="detailCard">
-    <button type="button" class="detail-toggle" id="detailToggle" aria-expanded="false" aria-controls="detailCollapse">
-      <span id="detailToggleLabel">Price chart</span><span class="chevron" aria-hidden="true">&#9662;</span>
-    </button>
-    <div class="detail-collapse" id="detailCollapse">
-      <div class="detail-collapse-inner">
-        <div class="detail" id="detail">
-          <div class="detail-empty">Select a product to see its price history.</div>
-        </div>
-      </div>
-    </div>
-  </div>
   <div class="below-grid">
     <div class="card">
       <div class="products-head">
@@ -397,7 +411,7 @@ let selectedSummary = null;
 const state = {
   cat1: null, cat2: null, cat3: null, stores: new Set(), query: '',
   lang: localStorage.getItem('opwLang') || 'en',
-  trackerOnly: false, sort: 'stores_desc', chartOpen: false,
+  trackerOnly: false, sort: 'stores_desc',
 };
 let menuPath = [];
 let catMenuOpen = false;
@@ -445,6 +459,11 @@ const T = {
     sortLabel: 'Sort', sortStores: 'Most supermarkets',
     sortPrice: 'Lowest price', sortUnit: 'Price per unit',
     continueGoogle: 'Continue with Google', continueApple: 'Continue with Apple', or: 'or',
+    communityPrices: 'Community prices', addSighting: '＋ Report a cheaper price',
+    shopName: 'Shop name', pricePaid: 'Price paid ($)', district: 'District', noteOptional: 'Note (optional)',
+    submit: 'Submit', noSightings: 'No community sightings yet — be the first to report one.',
+    report: 'Report', today: 'today', daysAgo: d => `${d}d ago`,
+    savingsCallout: (price, pct, online) => `Community found it for $${price} — ${pct}% under the $${online} online low.`,
   },
   tc: {
     h1: '香港超市價格紀錄',
@@ -477,6 +496,11 @@ const T = {
     sortLabel: '排序', sortStores: '有售超市數',
     sortPrice: '最低價', sortUnit: '單位價格',
     continueGoogle: '以 Google 繼續', continueApple: '以 Apple 繼續', or: '或',
+    communityPrices: '街坊回報價格', addSighting: '＋ 回報更平價格',
+    shopName: '店舖名稱', pricePaid: '付款金額（$）', district: '地區', noteOptional: '備註（可選）',
+    submit: '提交', noSightings: '尚未有街坊回報，成為第一位吧。',
+    report: '檢舉', today: '今天', daysAgo: d => `${d}天前`,
+    savingsCallout: (price, pct, online) => `街坊回報 $${price} 有售 — 較網上最低價 $${online} 平 ${pct}%。`,
   },
 };
 const t = () => T[state.lang];
@@ -499,6 +523,20 @@ const STORE_COLORS = {
 const STORE_ORDER = Object.keys(STORE_COLORS);
 const storeColor = sm => STORE_COLORS[sm] || '#9e9e9e';
 const storeTag = sm => `<span class="store-tag"><span class="store-dot" style="background:${storeColor(sm)}"></span>${storeLabel(sm)}</span>`;
+
+// HK 18 districts for the sightings "where did you see it" picker.
+const DISTRICTS = [
+  'Central and Western', 'Wan Chai', 'Eastern', 'Southern', 'Yau Tsim Mong', 'Sham Shui Po',
+  'Kowloon City', 'Wong Tai Sin', 'Kwun Tong', 'Kwai Tsing', 'Tsuen Wan', 'Tuen Mun',
+  'Yuen Long', 'North', 'Tai Po', 'Sha Tin', 'Sai Kung', 'Islands',
+];
+const DISTRICT_TC = {
+  'Central and Western': '中西區', 'Wan Chai': '灣仔', Eastern: '東區', Southern: '南區',
+  'Yau Tsim Mong': '油尖旺', 'Sham Shui Po': '深水埗', 'Kowloon City': '九龍城', 'Wong Tai Sin': '黃大仙',
+  'Kwun Tong': '觀塘', 'Kwai Tsing': '葵青', 'Tsuen Wan': '荃灣', 'Tuen Mun': '屯門', 'Yuen Long': '元朗',
+  North: '北區', 'Tai Po': '大埔', 'Sha Tin': '沙田', 'Sai Kung': '西貢', Islands: '離島',
+};
+const districtLabel = d => (state.lang === 'tc' ? DISTRICT_TC[d] || d : d);
 const catLabel = c => Array.isArray(c) ? c.join(' › ') : c;
 const ESC_MAP = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
 const escapeHtml = s => s.replace(/[&<>"']/g, c => ESC_MAP[c]);
@@ -540,10 +578,6 @@ function applyLangToPage() {
   document.getElementById('catLabel').textContent = t().category;
   document.getElementById('catClear').setAttribute('aria-label', t().clearCategory);
   document.getElementById('sortLabel').textContent = t().sortLabel;
-  renderDetailToggleLabel();
-  if (!selectedSummary) {
-    document.getElementById('detail').innerHTML = `<div class="detail-empty">${t().selectProduct}</div>`;
-  }
   if (INDEX) {
     document.getElementById('meta').textContent =
       t().meta(INDEX.products.length, INDEX.meta.snapshot_count, INDEX.meta.window_start, INDEX.meta.window_end);
@@ -559,25 +593,9 @@ function renderAll() {
   renderCatBtn();
   renderAccountBtn();
   renderTrackerChip();
-  applyFilters();
+  applyFilters(); // also re-opens the inline detail for selectedCode, if still in the rendered list
   renderDrops();
-  if (selectedSummary) renderDetail(selectedSummary);
 }
-
-// Detail chart: starts collapsed on page load so the products list below is
-// immediately visible; auto-expands when a product is selected.
-function renderDetailToggleLabel() {
-  document.getElementById('detailToggleLabel').textContent =
-    selectedSummary ? nameOf(selectedSummary) : t().chartHeading;
-}
-
-function setDetailOpen(open) {
-  state.chartOpen = open;
-  document.getElementById('detailCollapse').classList.toggle('open', open);
-  document.getElementById('detailToggle').setAttribute('aria-expanded', String(open));
-}
-
-document.getElementById('detailToggle').addEventListener('click', () => setDetailOpen(!state.chartOpen));
 
 // --- Accounts + watchlist (Supabase) ---------------------------------------
 // Everything below is a no-op (and renders nothing) when AUTH_ENABLED is false.
@@ -749,6 +767,49 @@ async function fetchWatchlist() {
   return new Set(error ? [] : data.map(r => r.product_code));
 }
 
+// --- Community price sightings (Supabase) -----------------------------------
+// Read is public (sightings_public view + RLS "select using (true)"), so this
+// works for signed-out visitors too. Write actions guard on session.
+
+async function fetchSightings(code) {
+  const { data, error } = await sb.from('sightings_public').select('*')
+    .eq('product_code', code)
+    .order('score', { ascending: false })
+    .order('created_at', { ascending: false });
+  if (error || !data) return [];
+  if (!session || !data.length) return data.map(s => ({ ...s, myVote: 0, myReported: false }));
+  const ids = data.map(s => s.id);
+  const [{ data: votes }, { data: reports }] = await Promise.all([
+    sb.from('sighting_votes').select('sighting_id, vote').eq('user_id', session.user.id).in('sighting_id', ids),
+    sb.from('sighting_reports').select('sighting_id').eq('user_id', session.user.id).in('sighting_id', ids),
+  ]);
+  const myVotes = new Map((votes || []).map(v => [v.sighting_id, v.vote]));
+  const myReports = new Set((reports || []).map(r => r.sighting_id));
+  return data.map(s => ({ ...s, myVote: myVotes.get(s.id) || 0, myReported: myReports.has(s.id) }));
+}
+
+async function postSighting({ code, shop_name, price, district, note }) {
+  if (!session) { openAuthModal('login'); return null; }
+  const { data, error } = await sb.from('sightings')
+    .insert({ product_code: code, user_id: session.user.id, shop_name, price, district, note: note || null })
+    .select().single();
+  if (error) throw error;
+  return data;
+}
+
+async function voteSighting(id, vote) {
+  if (!session) { openAuthModal('login'); return; }
+  const { error } = await sb.from('sighting_votes')
+    .upsert({ sighting_id: id, user_id: session.user.id, vote }, { onConflict: 'sighting_id,user_id' });
+  if (error) throw error;
+}
+
+async function reportSighting(id) {
+  if (!session) { openAuthModal('login'); return; }
+  const { error } = await sb.from('sighting_reports').insert({ sighting_id: id, user_id: session.user.id });
+  if (error) throw error;
+}
+
 async function initAuth() {
   if (!AUTH_ENABLED) return;
   const { data: { session: s } } = await sb.auth.getSession();
@@ -844,9 +905,8 @@ function renderStoreChips() {
 function toggleStore(sm) {
   if (state.stores.has(sm)) state.stores.delete(sm); else state.stores.add(sm);
   renderStoreChips();
-  applyFilters();
+  applyFilters(); // also re-renders the open inline detail so its chart reflects the new store filter
   renderDrops();
-  if (selectedSummary) renderDetail(selectedSummary);
 }
 
 // Counts distinct category[depth] values among products whose category[0..depth-1]
@@ -1089,9 +1149,23 @@ function applyFilters() {
   list = sortProducts(list);
   const shown = Math.min(list.length, 200);
   document.getElementById('resultCount').textContent = t().showing(shown, list.length);
-  renderResults(list.slice(0, 200));
+  const shownList = list.slice(0, 200);
+  renderResults(shownList);
   if (state.trackerOnly && !list.length) {
     document.getElementById('results').innerHTML = `<div class="item-sub">${t().noTracked}</div>`;
+  }
+  // renderResults above rebuilds #results from scratch, which wipes any inline
+  // detail region — reopen it (refetches + re-renders the chart, ponytail:
+  // known cost, debounce if rapid filter changes while a chart is open ever
+  // shows up in profiling) if selectedCode is still visible, else drop the selection.
+  if (selectedCode) {
+    if (shownList.some(p => p.code === selectedCode)) {
+      const row = document.querySelector(`#results .item[data-code="${CSS.escape(selectedCode)}"]`);
+      if (row) openInlineDetail(row, selectedSummary);
+    } else {
+      selectedCode = null;
+      selectedSummary = null;
+    }
   }
 }
 
@@ -1108,6 +1182,7 @@ function renderResults(products) {
     btn.setAttribute('role', 'button');
     btn.tabIndex = 0;
     btn.className = 'item' + (p.code === selectedCode ? ' selected' : '');
+    btn.dataset.code = p.code;
     btn.innerHTML =
       `<div class="item-row"><div class="item-main">${thumbHTML(p.code)}<div><div class="item-name">${nameOf(p)}</div>` +
       `<div class="item-sub">${brandOf(p)} &middot; ${catLabel(catOf(p))}</div></div></div>` +
@@ -1124,17 +1199,42 @@ function renderResults(products) {
   }
 }
 
-function selectProduct(p, btnEl) {
+// Inserts the accordion detail region right after rowEl (or, if rowEl is
+// null — e.g. a drops-list click whose product fell outside the 200-row cap
+// / current filters — at the top of #results as a standalone panel).
+function openInlineDetail(rowEl, summary) {
+  const wrap = document.createElement('div');
+  wrap.className = 'item-detail';
+  wrap.innerHTML = '<div class="detail" id="detail"></div>';
+  if (rowEl) {
+    rowEl.classList.add('selected');
+    rowEl.after(wrap);
+  } else {
+    // ponytail: standalone fallback rather than also clearing filters to reveal the row.
+    document.getElementById('results').prepend(wrap);
+  }
+  renderDetail(summary);
+  return wrap;
+}
+
+function removeInlineDetail() {
+  document.querySelector('.item-detail')?.remove();
+  document.querySelectorAll('.item.selected').forEach(x => x.classList.remove('selected'));
+}
+
+function selectProduct(p, rowEl) {
+  if (selectedCode === p.code) { // already open — collapse it
+    removeInlineDetail();
+    selectedCode = null;
+    selectedSummary = null;
+    return;
+  }
+  removeInlineDetail(); // only one open at a time
   selectedCode = p.code;
   selectedSummary = p;
-  document.querySelectorAll('.item.selected').forEach(x => x.classList.remove('selected'));
-  if (btnEl) btnEl.classList.add('selected');
-  setDetailOpen(true);
-  renderDetailToggleLabel();
-  renderDetail(p);
-  if (window.innerWidth < 880) {
-    document.getElementById('detailCard').scrollIntoView({ behavior: 'smooth' });
-  }
+  const target = rowEl || document.querySelector(`#results .item[data-code="${CSS.escape(p.code)}"]`);
+  const wrap = openInlineDetail(target, p);
+  if (window.innerWidth < 880) wrap.scrollIntoView({ behavior: 'smooth' });
 }
 
 // Formats a set of per-store values as "-X" when all stores agree, or
@@ -1209,8 +1309,11 @@ async function renderDetail(summary) {
 
   el.innerHTML = `<div class="detail-head">${thumbHTML(p.code, 'thumb-detail')}<div><h2>${nameOf(p)}${starHTML(p.code)}</h2>` +
     `<p class="sub-line">${brandOf(p)} &middot; ${catLabel(catOf(p))}</p></div></div>` +
+    `<div id="savingsCallout"></div>` +
     `<div class="chips range-chips" id="rangeChips"></div>` +
-    `<div class="chart-wrap"><canvas id="chart"></canvas></div><div class="table-wrap"><table id="latestTable"></table></div>`;
+    `<div class="chart-wrap"><canvas id="chart"></canvas></div>` +
+    `<div id="sightingsSection"></div>` +
+    `<div class="table-wrap"><table id="latestTable"></table></div>`;
 
   // Series are sparse (a point only when price/promo changed). Extend each
   // store's line to the product's last confirmed-seen date with a flat
@@ -1311,6 +1414,165 @@ async function renderDetail(summary) {
   }).join('');
   document.getElementById('latestTable').innerHTML =
     `<tr><th>${t().thChain}</th><th class="num">${t().thLatest}</th><th class="num">${t().thMedian}</th><th>${t().thOffer}</th><th></th></tr>` + rows;
+
+  // Sightings fetch after the chart/table are already rendered, so a slow
+  // network doesn't hold up the parts of the page users came here for.
+  loadSightings(p.code, summary);
+}
+
+let sightingsCache = [];
+let sightingFormOpen = false;
+
+// "Xd ago" / "today" — day resolution only, no library (spec doesn't need
+// hour/minute precision for community sightings).
+function relativeTime(iso) {
+  const days = Math.floor((Date.now() - Date.parse(iso)) / 864e5);
+  return days <= 0 ? t().today : t().daysAgo(days);
+}
+
+// report_count>=3 sightings are hidden client-side (see sightings.sql note
+// on why that threshold is brigade-abusable). Sort score desc, then newest.
+function visibleSightings(list) {
+  return list.filter(s => s.report_count < 3)
+    .sort((a, b) => b.score - a.score || Date.parse(b.created_at) - Date.parse(a.created_at));
+}
+
+function renderSavingsCallout(list, summary) {
+  const el = document.getElementById('savingsCallout');
+  if (!el) return;
+  const onlineLow = summary.latest_price_range?.[0];
+  const visible = visibleSightings(list);
+  const best = visible.length ? visible.reduce((a, b) => (Number(a.price) < Number(b.price) ? a : b)) : null;
+  if (!best || onlineLow == null || Number(best.price) >= onlineLow) { el.innerHTML = ''; return; }
+  const pct = Math.round((1 - Number(best.price) / onlineLow) * 100);
+  el.innerHTML = `<div class="savings-callout">${t().savingsCallout(Number(best.price).toFixed(2), pct, onlineLow.toFixed(2))}</div>`;
+}
+
+function sightingRowHTML(s) {
+  const old = (Date.now() - Date.parse(s.created_at)) / 864e5 > 60;
+  return `<div class="sighting-row${old ? ' dimmed' : ''}" data-id="${s.id}">` +
+    `<div class="sighting-main"><span class="sighting-shop">${escapeHtml(s.shop_name)}</span>` +
+    `<span class="sighting-price">$${Number(s.price).toFixed(2)}</span>` +
+    `<span class="sighting-district">${districtLabel(s.district)}</span></div>` +
+    (s.note ? `<div class="sighting-note">${escapeHtml(s.note)}</div>` : '') +
+    `<div class="sighting-foot"><span class="sighting-time">${relativeTime(s.created_at)}</span>` +
+    `<span class="sighting-votes">` +
+    `<button type="button" class="vote-btn${s.myVote === 1 ? ' active' : ''}" data-vote="1" aria-label="upvote">&#9650;</button>` +
+    `<span class="vote-score">${s.score}</span>` +
+    `<button type="button" class="vote-btn${s.myVote === -1 ? ' active' : ''}" data-vote="-1" aria-label="downvote">&#9660;</button>` +
+    `<button type="button" class="report-btn${s.myReported ? ' active' : ''}"${s.myReported ? ' disabled' : ''} aria-label="${t().report}">&#9873;</button>` +
+    `</span></div></div>`;
+}
+
+function sightingFormHTML() {
+  const options = DISTRICTS.map(d => `<option value="${d}">${districtLabel(d)}</option>`).join('');
+  return `<form class="sighting-form" id="sightingForm">` +
+    `<input type="text" id="sfShop" placeholder="${t().shopName}" required>` +
+    `<input type="number" id="sfPrice" placeholder="${t().pricePaid}" step="0.01" min="0" required>` +
+    `<select id="sfDistrict" required>${options}</select>` +
+    `<input type="text" id="sfNote" placeholder="${t().noteOptional}">` +
+    `<div class="modal-actions">` +
+    `<button type="submit" class="chip">${t().submit}</button>` +
+    `<button type="button" class="chip" id="sfCancel">${t().cancel}</button>` +
+    `</div></form>`;
+}
+
+function renderSightingsList(code, summary) {
+  const container = document.getElementById('sightingsSection');
+  if (!container) return;
+  const list = visibleSightings(sightingsCache);
+  container.innerHTML =
+    `<h3 class="community-heading">${t().communityPrices}</h3>` +
+    (list.length
+      ? `<div class="sightings-list">${list.map(sightingRowHTML).join('')}</div>`
+      : `<div class="item-sub">${t().noSightings}</div>`) +
+    `<button type="button" class="chip" id="addSightingBtn">${t().addSighting}</button>` +
+    (sightingFormOpen ? sightingFormHTML() : '');
+
+  document.getElementById('addSightingBtn').onclick = () => {
+    if (!session) { openAuthModal('login'); return; }
+    sightingFormOpen = !sightingFormOpen;
+    renderSightingsList(code, summary);
+    if (sightingFormOpen) document.getElementById('sfShop')?.focus();
+  };
+
+  if (sightingFormOpen) {
+    document.getElementById('sfCancel').onclick = () => {
+      sightingFormOpen = false;
+      renderSightingsList(code, summary);
+    };
+    document.getElementById('sightingForm').onsubmit = async e => {
+      e.preventDefault();
+      const shop_name = document.getElementById('sfShop').value.trim();
+      const price = parseFloat(document.getElementById('sfPrice').value);
+      const district = document.getElementById('sfDistrict').value;
+      const note = document.getElementById('sfNote').value.trim();
+      if (!shop_name || !(price >= 0) || !district) return;
+      try {
+        await postSighting({ code, shop_name, price, district, note });
+        sightingFormOpen = false;
+        sightingsCache = await fetchSightings(code);
+        renderSightingsList(code, summary);
+        renderSavingsCallout(sightingsCache, summary);
+      } catch {
+        // ponytail: leave the form open with entered values so the user can retry.
+      }
+    };
+  }
+
+  // ponytail: clicking your own current vote again just resends the same
+  // value (idempotent) rather than un-voting — a second click to undo isn't
+  // in the spec, add a delete-on-repeat-click if that's needed later.
+  container.querySelectorAll('.vote-btn').forEach(btn => {
+    btn.onclick = async () => {
+      if (!session) { openAuthModal('login'); return; }
+      const id = btn.closest('.sighting-row').dataset.id;
+      const s = sightingsCache.find(x => x.id === id);
+      const vote = parseInt(btn.dataset.vote, 10);
+      const prevScore = s.score, prevVote = s.myVote;
+      s.score += vote - prevVote;
+      s.myVote = vote;
+      renderSightingsList(code, summary);
+      try {
+        await voteSighting(id, vote);
+      } catch {
+        s.score = prevScore; s.myVote = prevVote;
+        renderSightingsList(code, summary);
+      }
+    };
+  });
+
+  container.querySelectorAll('.report-btn').forEach(btn => {
+    btn.onclick = async () => {
+      if (!session) { openAuthModal('login'); return; }
+      const id = btn.closest('.sighting-row').dataset.id;
+      const s = sightingsCache.find(x => x.id === id);
+      const prevReported = s.myReported, prevCount = s.report_count;
+      s.myReported = true;
+      s.report_count += 1;
+      renderSightingsList(code, summary);
+      renderSavingsCallout(sightingsCache, summary);
+      try {
+        await reportSighting(id);
+      } catch {
+        s.myReported = prevReported; s.report_count = prevCount;
+        renderSightingsList(code, summary);
+        renderSavingsCallout(sightingsCache, summary);
+      }
+    };
+  });
+}
+
+async function loadSightings(code, summary) {
+  sightingFormOpen = false;
+  sightingsCache = [];
+  if (!AUTH_ENABLED || !sb) { renderSightingsList(code, summary); return; }
+  document.getElementById('sightingsSection').innerHTML =
+    `<h3 class="community-heading">${t().communityPrices}</h3><div class="item-sub">${t().loading}</div>`;
+  sightingsCache = await fetchSightings(code);
+  if (selectedCode !== code) return; // user switched products while this was in flight
+  renderSavingsCallout(sightingsCache, summary);
+  renderSightingsList(code, summary);
 }
 </script>
 </body>
