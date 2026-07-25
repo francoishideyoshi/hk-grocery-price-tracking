@@ -283,6 +283,15 @@
     min-height: 2.75rem; padding: .5rem .75rem; font-size: 1rem; font: inherit;
     border: 1px solid var(--border); border-radius: 8px; background: var(--bg); color: var(--fg);
   }
+  .ac-wrap { position: relative; }
+  .ac-list {
+    position: absolute; top: 100%; left: 0; right: 0; z-index: 20; margin-top: .15rem;
+    max-height: 220px; overflow-y: auto; border: 1px solid var(--border); border-radius: 8px;
+    background: var(--card-bg); color: var(--fg);
+  }
+  .ac-item { padding: .5rem .75rem; cursor: pointer; }
+  .ac-item:hover { background: var(--hover-bg); }
+  .ac-sub { color: var(--muted); font-size: .78rem; }
 
   @media (max-width: 640px) {
     .layout { padding: .75rem; }
@@ -1567,12 +1576,33 @@ function sightingRowHTML(s) {
     `</span></div></div>`;
 }
 
+// ponytail: Photon (OSM) geocoder — free, no key, CORS-open. Google Places
+// would need a billing account + referrer-restricted key. Swapping providers
+// later only means replacing searchPlaces + placeDistrict below.
+let sfDistrict = ''; // district of the picked place; '' if the user free-typed
+const HK_BBOX = '113.82,22.15,114.44,22.57';
+let sfAcResults = [];
+let sfAcTimer = null;
+let sfAcSeq = 0;
+async function searchPlaces(q) {
+  try {
+    const res = await fetch(`https://photon.komoot.io/api/?q=${encodeURIComponent(q)}&limit=6&bbox=${HK_BBOX}`);
+    if (!res.ok) return [];
+    const json = await res.json();
+    return json.features.map(f => f.properties).filter(p => p.name);
+  } catch {
+    return [];
+  }
+}
+const placeDistrict = p => DISTRICTS.find(d => (p.district || p.city || '').includes(d)) || '';
+
 function sightingFormHTML() {
-  const options = DISTRICTS.map(d => `<option value="${d}">${districtLabel(d)}</option>`).join('');
   return `<form class="sighting-form" id="sightingForm">` +
-    `<input type="text" id="sfShop" placeholder="${t().shopName}" required>` +
+    `<div class="ac-wrap">` +
+    `<input type="text" id="sfShop" placeholder="${t().shopName}" autocomplete="off" required>` +
+    `<div class="ac-list" id="sfShopAc" hidden></div>` +
+    `</div>` +
     `<input type="number" id="sfPrice" placeholder="${t().pricePaid}" step="0.01" min="0" required>` +
-    `<select id="sfDistrict" required>${options}</select>` +
     `<input type="text" id="sfNote" placeholder="${t().noteOptional}">` +
     `<div class="modal-actions">` +
     `<button type="submit" class="chip">${t().submit}</button>` +
@@ -1600,6 +1630,41 @@ function renderSightingsList(code, summary) {
   };
 
   if (sightingFormOpen) {
+    sfDistrict = '';
+    const sfShop = document.getElementById('sfShop');
+    const sfShopAc = document.getElementById('sfShopAc');
+    const hideAc = () => { sfShopAc.hidden = true; sfShopAc.innerHTML = ''; };
+    const renderAc = () => {
+      sfShopAc.innerHTML = sfAcResults.map((p, i) => {
+        const sub = [p.street, p.district].filter(Boolean).join(', ');
+        return `<div class="ac-item" data-i="${i}">${escapeHtml(p.name)}` +
+          (sub ? `<div class="ac-sub">${escapeHtml(sub)}</div>` : '') + `</div>`;
+      }).join('');
+      sfShopAc.hidden = sfAcResults.length === 0;
+      sfShopAc.querySelectorAll('.ac-item').forEach(el => {
+        el.onmousedown = () => {
+          const p = sfAcResults[Number(el.dataset.i)];
+          sfShop.value = p.name;
+          sfDistrict = placeDistrict(p);
+          hideAc();
+        };
+      });
+    };
+    sfShop.oninput = () => {
+      sfDistrict = '';
+      clearTimeout(sfAcTimer);
+      const q = sfShop.value.trim();
+      if (q.length < 2) { hideAc(); return; }
+      sfAcTimer = setTimeout(async () => {
+        const seq = ++sfAcSeq;
+        const results = await searchPlaces(q);
+        if (seq !== sfAcSeq) return; // stale response, a newer query already fired
+        sfAcResults = results;
+        renderAc();
+      }, 250);
+    };
+    sfShop.onblur = hideAc;
+    sfShop.onkeydown = e => { if (e.key === 'Escape') hideAc(); };
     document.getElementById('sfCancel').onclick = () => {
       sightingFormOpen = false;
       renderSightingsList(code, summary);
@@ -1608,9 +1673,9 @@ function renderSightingsList(code, summary) {
       e.preventDefault();
       const shop_name = document.getElementById('sfShop').value.trim();
       const price = parseFloat(document.getElementById('sfPrice').value);
-      const district = document.getElementById('sfDistrict').value;
+      const district = sfDistrict;
       const note = document.getElementById('sfNote').value.trim();
-      if (!shop_name || !(price >= 0) || !district) return;
+      if (!shop_name || !(price >= 0)) return;
       try {
         await postSighting({ code, shop_name, price, district, note });
         sightingFormOpen = false;
