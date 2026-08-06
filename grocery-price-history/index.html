@@ -30,17 +30,14 @@
     --green-bg: #dcfce7; --green-fg: #166534;
     --amber-bg: #fef3c7; --amber-fg: #92400e;
     --error-fg: #dc2626;
-    /* four-step type scale. Everything in rem so the -apple-system-body
+    /* five-step type scale. Everything in rem so the -apple-system-body
        Dynamic Type hook below still scales the whole page; --text-base is the
        body size and doubles as the iOS-safe (>=16px at default) input size. */
     --text-meta: .75rem;   /* timestamps, counts, store tags, table headers */
     --text-sm: .875rem;    /* secondary lines: brand·category, sub-labels */
     --text-base: 1rem;     /* body, product names, prices, inputs */
-    --text-lg: 1.25rem;    /* page title, detail/modal headings */
-    /* measured from .app-header by a ResizeObserver (see JS) — the header
-       grows with body.auth-on and with iOS Dynamic Type, so the sticky
-       filter bar can't use a hardcoded offset. */
-    --header-h: 0px;
+    --text-md: 1.125rem;   /* the heading step between body text and the page title */
+    --text-lg: 1.5rem;     /* page title */
   }
   @media (prefers-color-scheme: dark) {
     :root {
@@ -62,6 +59,9 @@
   body {
     font-family: system-ui, -apple-system, "PingFang HK", "Noto Sans TC", sans-serif;
     margin: 0; background: var(--bg); color: var(--fg);
+    /* non-Apple browsers drop the -apple-system-body shorthand above, taking its
+       line-height with it — without this they fall back to the UA default */
+    line-height: 1.5;
   }
   .chip:focus-visible, .item:focus-visible, input:focus-visible, select:focus-visible {
     outline: 2px solid var(--accent); outline-offset: 2px;
@@ -72,18 +72,20 @@
     position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
     overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
   }
+  /* sized in em and stroked in currentColor, so an icon is the same weight and
+     colour as the text it sits beside wherever it is dropped in (see ICONS) */
+  .icon { width: 1em; height: 1em; flex-shrink: 0; vertical-align: -.125em; }
 
+  /* a flex row, not absolutely-positioned actions over a padded title: the
+     buttons reserve their own width, so nothing has to guess a right gutter */
   .app-header {
-    position: sticky; top: 0; z-index: 10;
+    display: flex; align-items: flex-start; gap: .5rem;
     background: var(--bg); border-bottom: 1px solid var(--border);
     padding: .75rem 1rem;
   }
+  .header-titles { min-width: 0; flex: 1; }
   .app-header h1 { font-size: var(--text-lg); margin: 0 0 .15rem; }
-  /* the tagline is the second line under the absolutely-positioned header
-     actions, so it needs the same right gutter the h1 has */
-  .app-header h1, .tagline { padding-right: 3.5rem; }
-  body.auth-on .app-header h1, body.auth-on .tagline { padding-right: 10rem; }
-  .header-actions { position: absolute; top: .75rem; right: 1rem; display: flex; gap: .4rem; }
+  .header-actions { display: flex; gap: .4rem; flex-shrink: 0; }
   .account-btn { max-width: 110px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .tagline { color: var(--muted); font-size: var(--text-sm); margin: 0 0 .2rem; }
   .meta { color: var(--muted); font-size: var(--text-meta); margin: 0 0 .6rem; }
@@ -94,6 +96,9 @@
     width: 100%; max-width: 420px; padding: .5rem .75rem; font-size: var(--text-base);
     border: 1px solid var(--border); border-radius: 999px;
     background: var(--card-bg); color: var(--fg);
+    /* it shares the wrapping filter bar with the pickers, so it shrinks with
+       them and only drops to its own row once it would go under 260px */
+    flex: 1 1 260px;
   }
 
   /* one-line badge key under the filter bar, dismissible (opwLegendDismissed) */
@@ -106,19 +111,19 @@
   .legend-item { display: inline-flex; align-items: center; gap: .35rem; }
   .legend .cat-clear { margin-left: auto; }
 
-  /* sits directly under the sticky header. z-index 5 keeps it under the header
-     (10) but over the unpositioned page content; the menus inside it stack
-     within this element, so .cat-menu's 30 still wins locally and the modal
-     overlay (50, position:fixed) still wins globally. */
+  /* search + filters are the only chrome that sticks — the title block above
+     scrolls away. z-index 5 keeps this over the unpositioned page content; the
+     menus inside it stack within this element, so .cat-menu's 30 still wins
+     locally and the modal overlay (50, position:fixed) still wins globally. */
   .filter-bar {
-    position: sticky; top: var(--header-h); z-index: 5;
+    position: sticky; top: 0; z-index: 5;
     display: flex; flex-wrap: wrap; align-items: center; gap: .5rem 1rem;
     padding: .5rem 1rem; border-bottom: 1px solid var(--border); background: var(--bg);
   }
 
-  .layout { display: block; padding: 1rem; max-width: none; }
+  .layout { display: block; padding: 1rem; max-width: 1100px; margin: 0 auto; }
 
-  /* products list is now full-width (chart expands inline under a row and needs the room); drops sits full-width below it. */
+  /* both cards are full-width inside that measure (the chart expands inline under a row and needs the room); products leads, drops sits below it. */
   .below-grid { display: flex; flex-direction: column; gap: 1rem; margin-top: 1rem; }
 
   .card {
@@ -126,9 +131,9 @@
     border-radius: 12px; padding: .75rem; box-shadow: var(--shadow);
   }
   /* section headings, not form labels — dropped the uppercase/letter-spacing
-     treatment so "Products" reads as a section at --text-base */
+     treatment so "Products" reads as a section at the --text-md heading step */
   .card h2 {
-    font-size: var(--text-base); font-weight: 600; color: var(--fg); margin: 0 0 .5rem;
+    font-size: var(--text-md); font-weight: 600; color: var(--fg); margin: 0 0 .5rem;
   }
 
   /* heading + its methodology disclosure button */
@@ -178,8 +183,9 @@
   .cat-label { font-size: var(--text-sm); color: var(--muted); }
   .cat-btn { display: inline-flex; align-items: center; gap: .35rem; }
   .cat-btn.active { background: var(--accent); border-color: var(--accent); color: var(--bg); }
-  /* em, not the rem scale: the chevron must track whatever text it sits next to */
-  .cat-chevron { display: inline-block; font-size: .75em; transition: transform .15s ease; }
+  /* inline-flex so the svg inside it is centred and the rotation below spins
+     around the glyph, not around a text baseline */
+  .cat-chevron { display: inline-flex; transition: transform .15s ease; }
   .cat-btn[aria-expanded="true"] .cat-chevron { transform: rotate(180deg); }
   .cat-clear {
     display: inline-flex; align-items: center; justify-content: center;
@@ -202,7 +208,9 @@
   }
   .cat-row:hover { background: var(--hover-bg); }
   .cat-row:active { background: var(--hover-bg); }
-  .cat-row.cat-back { color: var(--muted); }
+  /* the back arrow and its label are two flex items, so the row's default
+     space-between would fling them to opposite edges */
+  .cat-row.cat-back { color: var(--muted); justify-content: flex-start; gap: .35rem; }
   .cat-row .count { color: var(--muted); font-size: var(--text-meta); }
   .cat-row-right { display: flex; align-items: center; gap: .4rem; }
   .cat-path-label {
@@ -222,7 +230,6 @@
   .empty-state { display: flex; flex-direction: column; align-items: flex-start; gap: .6rem; padding: .5rem 0; }
 
   .list { display: flex; flex-direction: column; gap: .4rem; }
-  .drops-list { max-height: 420px; overflow-y: auto; } /* products list lost its cap so the inline chart isn't clipped; drops list keeps the old scroll cap */
   .item {
     display: block; width: 100%; min-height: 2.75rem; text-align: left; padding: .6rem .7rem;
     border: 1px solid var(--border); border-radius: 10px; background: var(--card-bg);
@@ -320,7 +327,7 @@
 
   .detail { min-height: 480px; }
   .detail-head { display: flex; align-items: flex-start; gap: .6rem; }
-  .detail h2 { margin: 0 0 .1rem; font-size: var(--text-lg); }
+  .detail h2 { margin: 0 0 .1rem; font-size: var(--text-md); }
   .detail .sub-line { color: var(--muted); font-size: var(--text-sm); margin: 0 0 .75rem; }
   .detail-error {
     color: var(--muted); text-align: center; padding: 3rem 1rem;
@@ -395,6 +402,7 @@
   .vote-btn.active { color: var(--accent); }
   .report-btn.active { color: var(--error-fg); }
   .vote-score { min-width: 1.4rem; text-align: center; font-size: var(--text-sm); font-weight: 600; }
+  #addSightingBtn { gap: .35rem; } /* the + icon would otherwise sit against the label */
   .sighting-form { display: flex; flex-direction: column; gap: .5rem; margin-top: .6rem; max-width: 320px; }
   .sighting-form input, .sighting-form select {
     min-height: 2.75rem; padding: .5rem .75rem; font: inherit;
@@ -471,7 +479,7 @@
   }
   .modal-overlay[hidden] { display: none; }
   .modal-card { width: 100%; max-width: 340px; }
-  .modal-card h2 { margin: 0; font-size: var(--text-lg); }
+  .modal-card h2 { margin: 0; font-size: var(--text-md); }
   /* the × sits beside the title so the dialog has a dismissal affordance that
      is visible before you reach the Cancel button at the bottom */
   .modal-head { display: flex; align-items: flex-start; justify-content: space-between; gap: .5rem; margin: 0 0 .75rem; }
@@ -505,30 +513,32 @@
 </head>
 <body>
 <header class="app-header">
+  <div class="header-titles">
+    <h1 id="pageTitle">HK Grocery Price History</h1>
+    <p class="tagline" id="tagline"></p>
+    <div class="meta" id="meta"></div>
+  </div>
   <div class="header-actions">
     <button type="button" class="chip account-btn" id="accountBtn" hidden></button>
     <button type="button" class="chip lang-toggle" id="langToggle">繁</button>
   </div>
-  <h1 id="pageTitle">HK Grocery Price History</h1>
-  <p class="tagline" id="tagline"></p>
-  <div class="meta" id="meta"></div>
-  <input type="search" id="search" placeholder="Search product name or brand...">
 </header>
 
 <div class="filter-bar">
+  <input type="search" id="search" placeholder="Search product name or brand...">
   <div class="cat-picker cat-picker-primary">
     <span class="cat-label" id="catLabel">Category</span>
     <button type="button" class="chip cat-btn" id="catBtn" aria-haspopup="true" aria-expanded="false">
-      <span id="catBtnText">All categories</span><span class="cat-chevron" aria-hidden="true">&#9662;</span>
+      <span id="catBtnText">All categories</span><span class="cat-chevron" aria-hidden="true"></span>
     </button>
-    <button type="button" class="cat-clear" id="catClear" hidden>&times;</button>
+    <button type="button" class="cat-clear" id="catClear" hidden></button>
     <div class="cat-menu" id="catMenu" role="menu" hidden></div>
   </div>
   <div class="cat-picker store-picker">
     <button type="button" class="chip cat-btn" id="storeBtn" aria-haspopup="true" aria-expanded="false">
-      <span id="storeBtnText">All supermarkets</span><span class="cat-chevron" aria-hidden="true">&#9662;</span>
+      <span id="storeBtnText">All supermarkets</span><span class="cat-chevron" aria-hidden="true"></span>
     </button>
-    <button type="button" class="cat-clear" id="storeClear" hidden>&times;</button>
+    <button type="button" class="cat-clear" id="storeClear" hidden></button>
     <div class="cat-menu" id="storeMenu" role="menu" hidden></div>
   </div>
   <button type="button" class="chip" id="trackerChip" hidden></button>
@@ -538,26 +548,27 @@
 
 <div class="layout">
   <div class="below-grid">
-    <div class="card">
-      <div class="card-head">
-        <h2 id="dropsHeading">Biggest drops</h2>
-        <button type="button" class="info-btn" id="dropsInfoBtn" aria-expanded="false" aria-controls="dropsInfo">&#9432;</button>
-      </div>
-      <p class="disclosure" id="dropsInfo" hidden></p>
-      <div class="list drops-list" id="drops"></div>
-    </div>
     <div class="card" id="productsCard">
       <div class="products-head">
-        <button type="button" class="collapse-btn" id="productsCollapse" aria-expanded="true" aria-label="Collapse products"><span class="cat-chevron" aria-hidden="true">&#9662;</span></button>
+        <button type="button" class="collapse-btn" id="productsCollapse" aria-expanded="true"><span class="cat-chevron" aria-hidden="true"></span></button>
         <h2 id="productsHeading">Products</h2>
         <div class="sort-control">
           <label for="sortSelect" id="sortLabel">Sort</label>
           <select id="sortSelect"></select>
         </div>
       </div>
+      <div class="result-count" id="looseNote" hidden></div>
       <div class="result-count" id="resultCount"></div>
       <div class="list" id="results"></div>
       <div class="show-more-wrap" id="showMoreWrap"></div>
+    </div>
+    <div class="card">
+      <div class="card-head">
+        <h2 id="dropsHeading">Biggest drops</h2>
+        <button type="button" class="info-btn" id="dropsInfoBtn" aria-expanded="false" aria-controls="dropsInfo"></button>
+      </div>
+      <p class="disclosure" id="dropsInfo" hidden></p>
+      <div class="list" id="drops"></div>
     </div>
   </div>
 </div>
@@ -579,7 +590,6 @@
 const SUPABASE_URL = 'https://cwchbjmtvfwmdyakndvx.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_hIDB5IxyTM_7uz1eoJpDXA_xHv8Xox6';
 const AUTH_ENABLED = !!(SUPABASE_URL && SUPABASE_ANON_KEY);
-if (AUTH_ENABLED) document.body.classList.add('auth-on');
 let sb = null;
 let session = null;
 let watchlist = new Set();
@@ -659,8 +669,9 @@ const T = {
     searchPlaceholder: 'Search product name or brand...',
     allCategories: 'All categories',
     allIn: x => `All in ${x}`,
-    back: '‹ Back',
+    back: 'Back',
     products: 'Products',
+    collapseProducts: 'Collapse products', expandProducts: 'Expand products',
     showing: (shown, total) => `Showing ${shown} of ${total} products`,
     // price and store are pre-formatted, so each language owns its word order
     cheapestAt: (price, store) => `${price} at ${store}`,
@@ -672,6 +683,7 @@ const T = {
     legendFake: 'on offer, but no cheaper than usual',
     dismiss: 'Hide this note',
     noneMatch: 'None match current filters.',
+    looseMatch: 'No exact match — showing close results.',
     selectProduct: 'Select a product to see its price history.',
     loading: 'Loading price history...',
     loadFailed: err => `Failed to load price history: ${err}`,
@@ -697,6 +709,8 @@ const T = {
     clearFilters: 'Clear all filters', clearStores: 'Clear supermarket filter',
     categoryMenu: 'Category menu', storeMenu: 'Supermarket menu',
     chartHeading: 'Price chart',
+    axisDate: 'Date',
+    noStoresSelected: 'No supermarkets selected — pick at least one to see prices.',
     seriesToggles: 'Show or hide supermarkets on the chart',
     chartSummary: (n, start, end, low, high) =>
       `Price history for ${n} supermarkets from ${start} to ${end}; current prices run from $${low} to $${high}.`,
@@ -706,7 +720,7 @@ const T = {
     sortPrice: 'Lowest price', sortUnit: 'Price per unit',
     allStores: 'All supermarkets', noStores: 'No supermarkets', storesSelected: n => `${n} supermarkets`,
     continueGoogle: 'Continue with Google', continueApple: 'Continue with Apple', or: 'or',
-    communityPrices: 'Community prices', addSighting: '＋ Report a cheaper price',
+    communityPrices: 'Community prices', addSighting: 'Report a cheaper price',
     shopName: 'Shop name', pricePaid: 'Price paid ($)', district: 'District', noteOptional: 'Note (optional)',
     submit: 'Submit', noSightings: 'No community sightings yet — be the first to report one.',
     report: 'Report', today: 'today', daysAgo: d => `${d}d ago`,
@@ -748,8 +762,9 @@ const T = {
     searchPlaceholder: '搜尋貨品名稱或品牌⋯',
     allCategories: '所有分類',
     allIn: x => `${x}（全部）`,
-    back: '‹ 返回',
+    back: '返回',
     products: '貨品',
+    collapseProducts: '收合貨品清單', expandProducts: '展開貨品清單',
     showing: (shown, total) => `顯示 ${total} 件貨品中的 ${shown} 件`,
     // 「惠康 $32.90」— 中文以店名帶頭，不用英文的 "at" 語序
     cheapestAt: (price, store) => `${store} ${price}`,
@@ -761,6 +776,7 @@ const T = {
     legendFake: '標住優惠，但其實無平過',
     dismiss: '隱藏此說明',
     noneMatch: '沒有符合篩選的貨品。',
+    looseMatch: '沒有完全符合 — 顯示相近結果。',
     selectProduct: '請選擇貨品以查看價格紀錄。',
     loading: '載入價格紀錄中⋯',
     loadFailed: err => `載入失敗：${err}`,
@@ -786,6 +802,8 @@ const T = {
     clearFilters: '清除所有篩選', clearStores: '清除超市篩選',
     categoryMenu: '分類選單', storeMenu: '超市選單',
     chartHeading: '價格圖表',
+    axisDate: '日期',
+    noStoresSelected: '未選擇任何超市 — 請最少揀一間以查看價格。',
     seriesToggles: '在圖表顯示或隱藏超市',
     chartSummary: (n, start, end, low, high) =>
       `${n} 間超市的價格紀錄，由 ${start} 至 ${end}，現價由 $${low} 至 $${high}。`,
@@ -795,7 +813,7 @@ const T = {
     sortPrice: '最低價', sortUnit: '單位價格',
     allStores: '所有超市', noStores: '沒有超市', storesSelected: n => `已選 ${n} 間超市`,
     continueGoogle: '以 Google 繼續', continueApple: '以 Apple 繼續', or: '或',
-    communityPrices: '街坊回報價格', addSighting: '＋ 回報更平價格',
+    communityPrices: '街坊回報價格', addSighting: '回報更平價格',
     shopName: '店舖名稱', pricePaid: '付款金額（$）', district: '地區', noteOptional: '備註（可選）',
     submit: '提交', noSightings: '尚未有街坊回報，成為第一位吧。',
     report: '檢舉', today: '今天', daysAgo: d => `${d}天前`,
@@ -914,6 +932,35 @@ const catLabel = c => Array.isArray(c) ? c.join(' › ') : c;
 const ESC_MAP = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
 const escapeHtml = s => s.replace(/[&<>"']/g, c => ESC_MAP[c]);
 
+// Unicode glyphs (ⓘ ⚑ ★ ▲ × ›) render at different weights, baselines and
+// sizes per platform — some Androids draw ⚑ and ★ as colour emoji. These are
+// hand-drawn on Lucide's 24x24 grid and stroke `currentColor`, so every icon
+// inherits the colour and size of the text beside it.
+const ICONS = {
+  x: '<path d="M18 6 6 18M6 6l12 12"/>',
+  info: '<circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/>',
+  plus: '<path d="M5 12h14M12 5v14"/>',
+  flag: '<path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><path d="M4 22v-7"/>',
+  star: '<path d="M12 2.5l2.9 6.05 6.6.72-4.9 4.55 1.32 6.48L12 17.1 6.08 20.3 7.4 13.82 2.5 9.27l6.6-.72z"/>',
+  chevronDown: '<path d="m6 9 6 6 6-6"/>',
+  chevronUp: '<path d="m18 15-6-6-6 6"/>',
+  chevronRight: '<path d="m9 18 6-6-6-6"/>',
+  chevronLeft: '<path d="m15 18-6-6 6-6"/>',
+};
+// filled=true is only for the tracked star; everything else is a stroke icon.
+const icon = (name, { cls = '', filled = false } = {}) =>
+  `<svg class="icon${cls ? ' ' + cls : ''}" viewBox="0 0 24 24" fill="${filled ? 'currentColor' : 'none'}"` +
+  ` stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">` +
+  `${ICONS[name]}</svg>`;
+
+// The static markup can't call icon(), so the handful of glyphs that live in
+// index.html rather than in a template string are stamped in here instead of
+// being duplicated as raw <svg> in the body.
+for (const [id, name] of Object.entries({ dropsInfoBtn: 'info', catClear: 'x', storeClear: 'x' })) {
+  document.getElementById(id).innerHTML = icon(name);
+}
+document.querySelectorAll('.cat-chevron').forEach(el => { el.innerHTML = icon('chevronDown'); });
+
 const RANGES = { '3M': 90, '1Y': 365, '3Y': 1095, 'All': null };
 let chartRange = '1Y';
 const cssVar = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
@@ -982,7 +1029,7 @@ function renderLegend() {
   el.innerHTML =
     `<span class="legend-item"><span class="badge drop">${t().badgeDrop}</span>${t().legendDrop}</span>` +
     `<span class="legend-item"><span class="badge fake">${t().badgeFake}</span>${t().legendFake}</span>` +
-    `<button type="button" class="cat-clear" id="legendDismiss" aria-label="${t().dismiss}">&times;</button>`;
+    `<button type="button" class="cat-clear" id="legendDismiss" aria-label="${t().dismiss}">${icon('x')}</button>`;
   document.getElementById('legendDismiss').onclick = () => {
     legendDismissed = true;
     localStorage.setItem('opwLegendDismissed', '1');
@@ -1024,9 +1071,18 @@ function applyLangToPage() {
   document.getElementById('sortLabel').textContent = t().sortLabel;
   document.getElementById('dropsInfo').textContent = t().dropsMethod;
   document.getElementById('dropsInfoBtn').setAttribute('aria-label', t().methodLabel);
+  syncProductsCollapseLabel();
   renderLegend();
   renderMeta();
   renderFooter();
+}
+
+// the collapse button is icon-only, so its whole name is this label — and the
+// label has to flip with the state as well as with the language
+function syncProductsCollapseLabel() {
+  const collapsed = document.getElementById('productsCard').classList.contains('collapsed');
+  document.getElementById('productsCollapse')
+    .setAttribute('aria-label', collapsed ? t().expandProducts : t().collapseProducts);
 }
 
 wireDisclosure(document.getElementById('dropsInfoBtn'), document.getElementById('dropsInfo'));
@@ -1124,13 +1180,15 @@ function starHTML(code) {
   if (!AUTH_ENABLED) return '';
   const tracked = watchlist.has(code);
   const label = tracked ? t().untrack : t().track;
-  return `<span class="star${tracked ? ' tracked' : ''}" data-code="${code}" role="button" tabindex="0" aria-label="${label}">${tracked ? '★' : '☆'}</span>`;
+  return `<span class="star${tracked ? ' tracked' : ''}" data-code="${code}" role="button" tabindex="0" aria-label="${label}">${starIcon(tracked)}</span>`;
 }
+
+const starIcon = tracked => icon('star', { filled: tracked });
 
 function syncStars(code) {
   const tracked = watchlist.has(code);
   document.querySelectorAll(`.star[data-code="${CSS.escape(code)}"]`).forEach(s => {
-    s.textContent = tracked ? '★' : '☆';
+    s.innerHTML = starIcon(tracked);
     s.classList.toggle('tracked', tracked);
     s.setAttribute('aria-label', tracked ? t().untrack : t().track);
   });
@@ -1209,7 +1267,7 @@ function showAuthModal(title, bodyHTML) {
   overlay.innerHTML =
     `<div class="card modal-card" role="dialog" aria-modal="true" aria-labelledby="authModalTitle">` +
     `<div class="modal-head"><h2 id="authModalTitle">${title}</h2>` +
-    `<button type="button" class="modal-close" id="authClose" aria-label="${t().close}">&times;</button></div>` +
+    `<button type="button" class="modal-close" id="authClose" aria-label="${t().close}">${icon('x')}</button></div>` +
     bodyHTML + `</div>`;
   overlay.hidden = false;
   document.getElementById('authClose').onclick = closeAuthModal;
@@ -1243,16 +1301,21 @@ function openAuthModal(mode) {
     `<button type="button" class="chip oauth-btn oauth-apple" id="oauthApple">${t().continueApple}</button>` +
     `</div>` +
     `<div class="auth-divider"><span>${t().or}</span></div>` +
-    `<input type="email" id="authEmail" name="email" autocomplete="email" placeholder="${t().email}">` +
+    // real labels, not placeholders — see the .field rule in the stylesheet
+    `<div class="field">` +
+    `<label class="field-label" for="authEmail">${t().email}</label>` +
+    `<input type="email" id="authEmail" name="email" autocomplete="email">` +
+    `</div>` +
     // the password manager needs to know which of the two it is looking at:
     // "current-password" offers a fill, "new-password" offers to generate/save
+    `<div class="field">` +
+    `<label class="field-label" for="authPassword">${t().password}</label>` +
     `<div class="pw-wrap">` +
     `<input type="password" id="authPassword" name="password"` +
     ` autocomplete="${mode === 'signup' ? 'new-password' : 'current-password'}"` +
-    (mode === 'signup' ? ` aria-describedby="authPwHelp"` : '') +
-    ` placeholder="${t().password}">` +
+    (mode === 'signup' ? ` aria-describedby="authPwHelp"` : '') + `>` +
     `<button type="button" class="chip pw-toggle" id="authPwToggle" aria-pressed="false">${t().showPassword}</button>` +
-    `</div>` +
+    `</div></div>` +
     // signup states the rule up front rather than after a rejected attempt
     (mode === 'signup' ? `<p class="field-help" id="authPwHelp">${t().passwordRules}</p>` : '') +
     `<div class="modal-actions">` +
@@ -1620,6 +1683,7 @@ document.getElementById('productsCollapse').addEventListener('click', () => {
   const card = document.getElementById('productsCard');
   const collapsed = card.classList.toggle('collapsed');
   document.getElementById('productsCollapse').setAttribute('aria-expanded', String(!collapsed));
+  syncProductsCollapseLabel();
 });
 
 // Counts distinct category[depth] values among products whose category[0..depth-1]
@@ -1651,7 +1715,8 @@ function matchesCat(p) {
 // --- Search ----------------------------------------------------------------
 // Token-based, so "mozzarella cheese" finds "Mozzarella Shredded Cheese".
 // Every token must match (strict AND); tokens are ranked prefix > substring >
-// one-typo so better matches float to the top of the list.
+// one-typo so better matches float to the top of the list. When strict AND
+// finds nothing at all, applyFilters retries with looseScore below.
 
 // Lowercased EN+TC name/brand per product, so search keeps working in both
 // languages regardless of the active UI language.
@@ -1660,11 +1725,71 @@ function matchesCat(p) {
 // writer of NAMES_TC must clear it too.
 const SEARCH_HAYSTACK = new Map();
 
+// --- Synonyms --------------------------------------------------------------
+// OPW names things the way the packaging does ("Toilet Roll", "Bath Tissue"),
+// which is not what anyone types. Each group is one concept: every phrase in it
+// rewrites to the same ~tag on both the query and the product haystack, so the
+// token matcher below needs no changes at all.
+// ponytail: hand-curated, not a thesaurus — grow it from queries that return
+// nothing, don't try to be complete up front.
+const CONCEPTS = [
+  ['toiletpaper',   ['toilet paper', 'toilet roll', 'toilet tissue', 'bath tissue', 'bathroom tissue', '廁紙', '衛生紙']],
+  ['papertowel',    ['kitchen towel', 'kitchen paper', 'paper towel', '廚房紙']],
+  ['tissue',        ['facial tissue', 'tissue paper', '紙巾', '面紙']],
+  ['detergent',     ['laundry detergent', 'washing powder', 'laundry powder', '洗衣液', '洗衣粉']],
+  ['dishsoap',      ['dish soap', 'dishwashing liquid', 'washing up liquid', '洗潔精']],
+  ['softener',      ['fabric softener', 'fabric conditioner', '柔順劑']],
+  ['softdrink',     ['soft drink', 'fizzy drink', 'soda', '汽水']],
+  ['sparkling',     ['sparkling water', 'soda water', '有氣水', '梳打水']],
+  ['instantnoodle', ['instant noodle', 'cup noodle', 'pot noodle', '即食麵', '公仔麵', '杯麵']],
+  ['clingfilm',     ['cling film', 'cling wrap', 'plastic wrap', '保鮮紙']],
+  ['foil',          ['tin foil', 'aluminium foil', 'aluminum foil', '錫紙']],
+  ['binbag',        ['bin bag', 'bin liner', 'rubbish bag', 'garbage bag', 'trash bag', '垃圾袋']],
+  ['wetwipe',       ['wet wipe', 'baby wipe', 'wet tissue', '濕紙巾']],
+  ['sanitarypad',   ['sanitary pad', 'sanitary napkin', 'sanitary towel', '衛生巾']],
+  ['diaper',        ['diaper', 'nappy', '尿片', '紙尿褲']],
+  ['shrimp',        ['shrimp', 'prawn', '蝦']],
+  ['eggplant',      ['eggplant', 'aubergine', '茄子']],
+  ['coriander',     ['coriander', 'cilantro', '芫茜', '香菜']],
+];
+
+// longest phrase first, so "toilet paper" is consumed before any bare-word group
+const CONCEPT_PHRASES = CONCEPTS
+  .flatMap(([tag, phrases]) => phrases.map(ph => [ph.toLowerCase(), '~' + tag]))
+  .sort((a, b) => b[0].length - a[0].length);
+
+// Product side: APPEND tags and keep the original words, so "toilet" alone
+// still hits "Toilet Roll" exactly as it does today.
+const conceptTags = text =>
+  CONCEPT_PHRASES.filter(([ph]) => text.includes(ph)).map(([, tag]) => tag).join(' ');
+
+// Query side: REPLACE the matched phrase. Keeping "paper" as a required token
+// is the whole bug — "Toilet Roll" has no "paper" in it and never will.
+// Memoised on the last query: searchScore runs once per product per keystroke.
+let expandedFor = null, expandedQ = '';
+function expandQuery(q) {
+  if (q === expandedFor) return expandedQ;
+  let rest = q;
+  const tags = new Set();
+  for (const [ph, tag] of CONCEPT_PHRASES) {
+    if (!rest.includes(ph)) continue;
+    rest = rest.split(ph).join(' ');
+    tags.add(tag);
+  }
+  expandedFor = q;
+  expandedQ = `${rest} ${[...tags].join(' ')}`.trim();
+  return expandedQ;
+}
+
+// Cached per product: the EN+TC text plus the ~concept tags it earns, which is
+// what lets a query for one phrasing of a concept find every other phrasing.
 function searchHaystack(p) {
   let hay = SEARCH_HAYSTACK.get(p.code);
   if (hay === undefined) {
     const tc = tcOf(p.code);
     hay = [p.name, p.brand, tc?.name, tc?.brand].filter(Boolean).join(' ').toLowerCase();
+    const tags = conceptTags(hay);
+    if (tags) hay += ' ' + tags;
     SEARCH_HAYSTACK.set(p.code, hay);
   }
   return hay;
@@ -1707,7 +1832,7 @@ function tokenTier(token, hay, words) {
 function searchScore(p) {
   if (!p) return NO_SEARCH_MATCH;
   const q = state.query;
-  const tokens = searchTokens(q);
+  const tokens = searchTokens(expandQuery(q));
   if (!tokens.length) return 0;
   const hay = searchHaystack(p);
   const words = hay.split(/\s+/);
@@ -1717,8 +1842,22 @@ function searchScore(p) {
     if (tier === TIER_NONE) return NO_SEARCH_MATCH;
     score += tier;
   }
+  // the RAW query, not the expanded one: a product literally named "toilet
+  // paper" must still outrank a "Toilet Roll" that only matched via the tag
   if (hay.includes(q)) score += PHRASE_BONUS * tokens.length;
   return score;
+}
+
+// Same tiers, no gate: a token that misses just scores nothing, so only an
+// all-miss query is a non-result. Feeds applyFilters' fallback pass.
+function looseScore(p) {
+  const tokens = searchTokens(expandQuery(state.query));
+  if (!tokens.length) return 0;
+  const hay = searchHaystack(p);
+  const words = hay.split(/\s+/);
+  let score = 0;
+  for (const token of tokens) score += tokenTier(token, hay, words);
+  return score || NO_SEARCH_MATCH;
 }
 
 // Shared by the products list and the drops panel.
@@ -1733,6 +1872,8 @@ function __searchSelfCheck() {
   const scattered = { code: '__sc1', name: 'Mozzarella Shredded Cheese', brand: 'Anchor' };
   const phrase = { code: '__sc2', name: 'Mozzarella Cheese Block', brand: 'Anchor' };
   const tea = { code: '__sc3', name: 'Green Tea Bags', brand: 'Lipton' };
+  const roll = { code: '__sc4', name: 'Toilet Roll 10 Rolls', brand: 'Virjoy' };
+  const tp = { code: '__sc5', name: 'Toilet Paper 10 Rolls', brand: 'Virjoy' };
   const score = (p, q) => { state.query = q; return searchScore(p); };
   console.assert(score(scattered, 'mozzarella cheese') > NO_SEARCH_MATCH, 'tokens may be non-contiguous');
   console.assert(score(scattered, 'mozarella') > NO_SEARCH_MATCH, 'one-typo token still matches');
@@ -1741,8 +1882,15 @@ function __searchSelfCheck() {
     score(phrase, 'mozzarella cheese') > score(scattered, 'mozzarella cheese'),
     'verbatim phrase outranks scattered tokens');
   console.assert(score(tea, 'taa') === NO_SEARCH_MATCH, 'no typo tolerance below 4 chars');
+  console.assert(score(roll, 'toilet paper') > NO_SEARCH_MATCH, 'synonym tag bridges paper -> roll');
+  console.assert(
+    score(roll, 'toilet paper towel') === NO_SEARCH_MATCH,
+    'a token left over after expansion still gates');
+  console.assert(
+    score(tp, 'toilet paper') > score(roll, 'toilet paper'),
+    'the literal name outranks the one that only matched via the tag');
   state.query = prevQuery;
-  ['__sc1', '__sc2', '__sc3'].forEach(c => SEARCH_HAYSTACK.delete(c));
+  ['__sc1', '__sc2', '__sc3', '__sc4', '__sc5'].forEach(c => SEARCH_HAYSTACK.delete(c));
 }
 
 function currentCatPath() {
@@ -1821,7 +1969,7 @@ function renderCatMenu() {
   if (depth > 0) {
     const back = document.createElement('div');
     back.className = 'cat-row cat-back';
-    back.textContent = t().back;
+    back.innerHTML = icon('chevronLeft') + t().back;
     setRowActivation(back, () => { menuPath.pop(); renderCatMenu(); });
     menu.appendChild(back);
 
@@ -1853,7 +2001,7 @@ function renderCatMenu() {
     const hasChildren = catCounts(depth + 1, [...menuPath, name]).size > 0;
     if (hasChildren) {
       const arrow = document.createElement('span');
-      arrow.textContent = '›';
+      arrow.innerHTML = icon('chevronRight');
       right.appendChild(arrow);
       setRowActivation(row, () => { menuPath.push(name); renderCatMenu(); });
     } else {
@@ -1906,26 +2054,30 @@ document.addEventListener('keydown', e => {
   if (!document.getElementById('authModal').hidden) closeAuthModal();
 });
 
+const hasCJK = s => /[一-鿿]/.test(s);
+
 // The input's own value stays instant; only the expensive part (re-filtering
 // thousands of products and rebuilding hundreds of rows) waits for a pause.
 let searchTimer = null;
+let searchSeq = 0; // a slow names_tc.json must not overwrite a newer query's results
 document.getElementById('search').addEventListener('input', e => {
   const q = e.target.value.trim().toLowerCase();
   clearTimeout(searchTimer);
-  searchTimer = setTimeout(() => {
+  searchTimer = setTimeout(async () => {
+    const seq = ++searchSeq; // claimed here, not in the branch: the next query may not fetch at all
+    // Chinese typed into an English UI has nothing to match until the TC names
+    // land, so they are fetched on demand rather than by every visitor. This
+    // also clears SEARCH_HAYSTACK, so haystacks rebuild with TC names + tags.
+    if (hasCJK(q) && !NAMES_TC) {
+      document.getElementById('resultCount').textContent = t().loadingLang;
+      await loadNamesTC();
+      if (seq !== searchSeq) return; // a newer keystroke already took over
+    }
     state.query = q;
     applyFilters();
     renderDrops();
   }, 150);
 });
-
-// .filter-bar is sticky right under the header, whose height changes with
-// body.auth-on and with iOS Dynamic Type — so publish the measured height
-// instead of hardcoding an offset in CSS.
-const headerEl = document.querySelector('.app-header');
-new ResizeObserver(() => {
-  document.documentElement.style.setProperty('--header-h', `${headerEl.offsetHeight}px`);
-}).observe(headerEl);
 
 // ponytail: back-of-envelope unit-price parser, one regex pass over the
 // product name. Handles "330mL", "1.5L", "500g", "1kg", "565 GM",
@@ -1980,11 +2132,13 @@ function sortComparator() {
 
 // With a query, relevance leads and the chosen sort only breaks ties; with an
 // empty query the three sort modes are the whole ordering, exactly as before.
-function sortProducts(list) {
+// `scores` is passed in by the loose pass, whose rows all score
+// NO_SEARCH_MATCH under searchScore and would compare as NaN.
+function sortProducts(list, scores) {
   const cmp = sortComparator();
   if (!state.query) return [...list].sort(cmp);
-  const scores = new Map(list.map(p => [p.code, searchScore(p)]));
-  return [...list].sort((a, b) => (scores.get(b.code) - scores.get(a.code)) || cmp(a, b));
+  const s = scores || new Map(list.map(p => [p.code, searchScore(p)]));
+  return [...list].sort((a, b) => (s.get(b.code) - s.get(a.code)) || cmp(a, b));
 }
 
 function renderSortOptions() {
@@ -2046,8 +2200,27 @@ function applyFilters() {
   if (state.trackerOnly) {
     list = list.filter(p => watchlist.has(p.code));
   }
-  if (state.query) list = list.filter(matchesSearch);
-  filteredList = sortProducts(list);
+  // strict AND first; only when it finds nothing does the at-least-one-token
+  // pass run, so a query that matches exactly is never diluted by near misses
+  let loose = null;
+  if (state.query) {
+    const exact = list.filter(matchesSearch);
+    if (exact.length) {
+      list = exact;
+    } else {
+      loose = new Map();
+      for (const p of list) {
+        const s = looseScore(p);
+        if (s !== NO_SEARCH_MATCH) loose.set(p.code, s);
+      }
+      list = list.filter(p => loose.has(p.code));
+      if (!list.length) loose = null; // nothing matched either way — plain empty state
+    }
+  }
+  const looseNote = document.getElementById('looseNote');
+  looseNote.textContent = loose ? t().looseMatch : '';
+  looseNote.hidden = !loose;
+  filteredList = sortProducts(list, loose);
   // every filter/search/sort/tracker change routes through here, so this is
   // also where the page window resets to the first page.
   renderCount = Math.min(PAGE_SIZE, filteredList.length);
@@ -2113,6 +2286,9 @@ function itemRow(p) {
   btn.setAttribute('role', 'button');
   // openInlineDetail is the only writer of "true"; every fresh row starts closed.
   btn.setAttribute('aria-expanded', 'false');
+  // without this the row's name is every word inside it — brand, category,
+  // price, each store tag and each badge, read out before the control's state
+  btn.setAttribute('aria-label', nameOf(p));
   btn.tabIndex = 0;
   btn.className = 'item' + (p.code === selectedCode ? ' selected' : '');
   btn.dataset.code = p.code;
@@ -2120,7 +2296,7 @@ function itemRow(p) {
     `<div class="item-row"><div class="item-main">${thumbHTML(p.code)}<div><div class="item-name">${nameOf(p)}</div>` +
     `<div class="item-sub">${brandOf(p)} &middot; ${catLabel(catOf(p))}</div></div></div>` +
     priceCellHTML(p) +
-    `<span class="item-arrow" aria-hidden="true">&rsaquo;</span></div>` +
+    `<span class="item-arrow">${icon('chevronRight')}</span></div>` +
     `<div class="stores-row">${STORE_ORDER.filter(s => p.stores.includes(s)).map(storeTag).join('')}</div>` +
     `<div class="badges">${badgeSpans(p.badges)}</div>`;
   btn.onclick = () => selectProduct(p, btn);
@@ -2138,7 +2314,7 @@ function renderResults(products) {
 }
 
 // Inserts the accordion detail region right after rowEl (or, if rowEl is
-// null — e.g. a drops-list click whose product falls outside the current
+// null — e.g. a drops-panel click whose product falls outside the current
 // filters — at the top of #results as a standalone panel).
 function openInlineDetail(rowEl, summary) {
   const wrap = document.createElement('div');
@@ -2362,10 +2538,10 @@ const SORT_COLS = [
 function sortableHeader(col, sort) {
   const on = sort.key === col.key;
   const ariaSort = on ? (sort.dir === 'asc' ? 'ascending' : 'descending') : 'none';
-  const arrow = on ? (sort.dir === 'asc' ? '&#9650;' : '&#9660;') : '';
+  // the icon carries its own aria-hidden, so no wrapper span is needed
+  const arrow = on ? icon(sort.dir === 'asc' ? 'chevronUp' : 'chevronDown') : '';
   return `<th${col.cls ? ` class="${col.cls}"` : ''} aria-sort="${ariaSort}">` +
-    `<button type="button" class="th-sort" data-key="${col.key}">${col.label()}` +
-    `<span aria-hidden="true">${arrow}</span></button></th>`;
+    `<button type="button" class="th-sort" data-key="${col.key}">${col.label()}${arrow}</button></th>`;
 }
 
 async function renderDetail(summary) {
@@ -2391,8 +2567,9 @@ async function renderDetail(summary) {
   // store's line to the product's last confirmed-seen date with a flat
   // point, so the stepped chart doesn't visually stop at the last change
   // when the price has simply stayed the same since.
-  const seriesEntries = Object.entries(p.series)
-    .filter(([sm]) => !state.stores.size || state.stores.has(sm));
+  // no "empty set means everything" escape hatch: the list already goes empty
+  // when every chain is unchecked, so the chart has to agree with it
+  const seriesEntries = Object.entries(p.series).filter(([sm]) => state.stores.has(sm));
   const datasets = seriesEntries.map(([sm, series]) => {
     const points = series.map(pt => ({ x: Date.parse(pt[0]), y: pt[1], offer: pt[2] }));
     const last = series[series.length - 1];
@@ -2487,19 +2664,28 @@ async function renderDetail(summary) {
     });
   }
 
-  let chartLibOk = true;
+  // two reasons there may be no chart — the library never arrived, or every
+  // chain is filtered out. Both leave the table (empty in the second case) and
+  // both must skip the chips and toggles, which dereference `chart`.
+  let chartOk = true;
   try {
     await libReady;
   } catch (err) {
-    chartLibOk = false;
+    chartOk = false;
     const wrap = document.getElementById('chartWrap');
     // the summary describes a chart that isn't there any more
     wrap.removeAttribute('role');
     wrap.removeAttribute('aria-label');
     wrap.innerHTML = `<div class="detail-error">${t().loadFailed(err.message)}</div>`;
   }
+  if (chartOk && !seriesEntries.length) {
+    chartOk = false;
+    // chartSummary was '' here, so the wrap never got the role/aria-label
+    document.getElementById('chartWrap').innerHTML =
+      `<div class="detail-error">${t().noStoresSelected}</div>`;
+  }
 
-  if (chartLibOk) {
+  if (chartOk) {
     // chip handlers dereference chart.options, so the chips only exist when the chart does
     renderRangeChips();
 
@@ -2521,6 +2707,7 @@ async function renderDetail(summary) {
           x: {
             type: 'time', time: { tooltipFormat: 'yyyy-MM-dd' },
             min: initWindow.min, max: initWindow.max,
+            title: { display: true, text: t().axisDate, color: cssVar('--muted') },
             grid: { display: false }, border: { display: false },
             ticks: { color: cssVar('--muted'), maxRotation: 0, maxTicksLimit: 6 },
           },
@@ -2642,7 +2829,7 @@ const voteLabel = vote => (vote === 1 ? t().upvote : t().downvote);
 function voteBtnHTML(s, vote) {
   const on = s.myVote === vote;
   return `<button type="button" class="vote-btn${on ? ' active' : ''}" data-vote="${vote}"` +
-    ` aria-pressed="${on}" aria-label="${voteLabel(vote)}">${vote === 1 ? '&#9650;' : '&#9660;'}</button>`;
+    ` aria-pressed="${on}" aria-label="${voteLabel(vote)}">${icon(vote === 1 ? 'chevronUp' : 'chevronDown')}</button>`;
 }
 
 // Step two of the report: the flag button only arms this panel, this button posts.
@@ -2674,7 +2861,7 @@ function sightingRowHTML(s) {
     `<span class="sr-only">${t().voteScore(s.score)}</span></span>` +
     voteBtnHTML(s, -1) +
     `<button type="button" class="report-btn${s.myReported ? ' active' : ''}"${s.myReported ? ' disabled' : ''}` +
-    ` aria-expanded="${confirming}" aria-label="${t().report}">&#9873;</button>` +
+    ` aria-expanded="${confirming}" aria-label="${t().report}">${icon('flag')}</button>` +
     `</span></div>` +
     (confirming ? reportConfirmHTML() : '') +
     `</div>`;
@@ -2780,7 +2967,7 @@ function renderSightingsList(code, summary) {
     (list.length
       ? `<div class="sightings-list">${list.map(sightingRowHTML).join('')}</div>`
       : `<div class="item-sub">${t().noSightings}</div>`) +
-    `<button type="button" class="chip" id="addSightingBtn">${t().addSighting}</button>` +
+    `<button type="button" class="chip" id="addSightingBtn">${icon('plus')}${t().addSighting}</button>` +
     (sightingFormOpen ? sightingFormHTML() : '');
 
   const setMsg = (text, error) => {
