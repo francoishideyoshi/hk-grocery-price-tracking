@@ -415,6 +415,11 @@
   /* the >60d "dimmed" treatment is opacity-only, which says nothing to a screen
      reader and little to a low-vision one — this tag carries the same meaning */
   .badge.old { background: var(--hover-bg); color: var(--muted); }
+  /* a report is irreversible and three of them hide a sighting from everyone,
+     so the button only arms this inline step inside its own row — an inline
+     panel needs no focus trap and can't collide with the auth dialog */
+  .report-confirm { margin-top: .4rem; padding-top: .4rem; border-top: 1px solid var(--border); }
+  .report-confirm-title { font-size: var(--text-sm); font-weight: 600; margin: 0 0 .2rem; }
   .ac-wrap { position: relative; }
   .ac-list {
     position: absolute; top: 100%; left: 0; right: 0; z-index: 20; margin-top: .15rem;
@@ -470,7 +475,16 @@
   /* the × sits beside the title so the dialog has a dismissal affordance that
      is visible before you reach the Cancel button at the bottom */
   .modal-head { display: flex; align-items: flex-start; justify-content: space-between; gap: .5rem; margin: 0 0 .75rem; }
-  .pw-wrap { display: flex; align-items: center; gap: .25rem; }
+  .modal-close {
+    display: inline-flex; align-items: center; justify-content: center;
+    min-width: 2.75rem; min-height: 2.75rem; margin: -.5rem -.5rem 0 0;
+    border: none; background: none; color: var(--muted); cursor: pointer;
+    border-radius: 50%; font: inherit; font-size: var(--text-lg); line-height: 1;
+  }
+  .modal-close:hover { background: var(--hover-bg); }
+  /* the wrap takes over the input's own bottom margin so the row spaces like a
+     plain input does */
+  .pw-wrap { display: flex; align-items: center; gap: .25rem; margin-bottom: .5rem; }
   .pw-wrap input { flex: 1 1 auto; margin-bottom: 0; }
   .pw-toggle { white-space: nowrap; font-size: var(--text-sm); padding: .5rem .4rem; }
   .modal-card input {
@@ -1184,33 +1198,99 @@ function closeAuthModal() {
   if (modalOpener) { modalOpener.focus(); modalOpener = null; }
 }
 
-function openAuthModal(mode) {
-  modalOpener = document.activeElement;
+// Both modals reuse this shell, so the dialog semantics, the labelled heading,
+// the × and the focus trap are written once. Tab off either end of the control
+// list wraps to the other end, so the keyboard cannot reach the page behind.
+// ponytail: the trap lists `button, input` and skips visibility/disabled
+// filtering — nothing in either modal is ever hidden or disabled. Add a filter
+// the day one of them gains a conditional control.
+function showAuthModal(title, bodyHTML) {
   const overlay = document.getElementById('authModal');
-  const submitLabel = mode === 'signup' ? t().signUp : t().login;
   overlay.innerHTML =
-    `<div class="card modal-card"><h2>${submitLabel}</h2>` +
-    `<div class="auth-error" id="authError" hidden></div>` +
+    `<div class="card modal-card" role="dialog" aria-modal="true" aria-labelledby="authModalTitle">` +
+    `<div class="modal-head"><h2 id="authModalTitle">${title}</h2>` +
+    `<button type="button" class="modal-close" id="authClose" aria-label="${t().close}">&times;</button></div>` +
+    bodyHTML + `</div>`;
+  overlay.hidden = false;
+  document.getElementById('authClose').onclick = closeAuthModal;
+  // focus has to land inside the dialog or the trap below never sees a keypress;
+  // callers with a better first stop (the email field) override this after.
+  document.getElementById('authClose').focus();
+  // Tab only; Escape keeps bubbling to the document handler that closes us.
+  overlay.onkeydown = e => {
+    if (e.key !== 'Tab') return;
+    const items = overlay.querySelectorAll('button, input');
+    if (!items.length) return;
+    const edge = e.shiftKey ? items[0] : items[items.length - 1];
+    if (document.activeElement !== edge) return;
+    e.preventDefault();
+    (e.shiftKey ? items[items.length - 1] : items[0]).focus();
+  };
+  return overlay;
+}
+
+function openAuthModal(mode) {
+  // the login/signup switch re-opens through here, and by then activeElement is
+  // a button inside the card we are about to replace — keep the page element
+  // that opened us so closing still hands focus back to something that exists
+  if (document.getElementById('authModal').hidden) modalOpener = document.activeElement;
+  const submitLabel = mode === 'signup' ? t().signUp : t().login;
+  showAuthModal(submitLabel,
+    `<div class="auth-error" id="authError" role="alert" hidden></div>` +
     `<div class="auth-note" id="authNote" hidden>${t().confirmSent}</div>` +
     `<div class="oauth-buttons">` +
     `<button type="button" class="chip oauth-btn" id="oauthGoogle">${t().continueGoogle}</button>` +
     `<button type="button" class="chip oauth-btn oauth-apple" id="oauthApple">${t().continueApple}</button>` +
     `</div>` +
     `<div class="auth-divider"><span>${t().or}</span></div>` +
-    `<input type="email" id="authEmail" placeholder="${t().email}">` +
-    `<input type="password" id="authPassword" placeholder="${t().password}">` +
+    `<input type="email" id="authEmail" name="email" autocomplete="email" placeholder="${t().email}">` +
+    // the password manager needs to know which of the two it is looking at:
+    // "current-password" offers a fill, "new-password" offers to generate/save
+    `<div class="pw-wrap">` +
+    `<input type="password" id="authPassword" name="password"` +
+    ` autocomplete="${mode === 'signup' ? 'new-password' : 'current-password'}"` +
+    (mode === 'signup' ? ` aria-describedby="authPwHelp"` : '') +
+    ` placeholder="${t().password}">` +
+    `<button type="button" class="chip pw-toggle" id="authPwToggle" aria-pressed="false">${t().showPassword}</button>` +
+    `</div>` +
+    // signup states the rule up front rather than after a rejected attempt
+    (mode === 'signup' ? `<p class="field-help" id="authPwHelp">${t().passwordRules}</p>` : '') +
     `<div class="modal-actions">` +
     `<button type="button" class="chip" id="authSubmit">${submitLabel}</button>` +
     `<button type="button" class="chip" id="authSwitch">${mode === 'signup' ? t().login : t().signUp}</button>` +
     `<button type="button" class="chip" id="authCancel">${t().cancel}</button>` +
-    `</div></div>`;
-  overlay.hidden = false;
+    `</div>`);
   document.getElementById('authCancel').onclick = closeAuthModal;
+  document.getElementById('authPwToggle').onclick = e => {
+    const input = document.getElementById('authPassword');
+    const shown = input.type === 'text';
+    input.type = shown ? 'password' : 'text';
+    e.currentTarget.setAttribute('aria-pressed', String(!shown));
+    e.currentTarget.textContent = shown ? t().showPassword : t().hidePassword;
+  };
   document.getElementById('authSwitch').onclick = () => openAuthModal(mode === 'signup' ? 'login' : 'signup');
   document.getElementById('authSubmit').onclick = () => submitAuth(mode);
   document.getElementById('oauthGoogle').onclick = () => oauthSignIn('google');
   document.getElementById('oauthApple').onclick = () => oauthSignIn('apple');
   document.getElementById('authEmail').focus();
+}
+
+// Supabase only ever speaks English, so an unmapped error left a Traditional
+// Chinese reader staring at "Invalid login credentials". Unrecognised messages
+// pass through raw — a wrong-language sentence still beats swallowing it.
+// ponytail: this keys off Supabase's message text, which is theirs to reword
+// at will. A rename silently drops the case back to the raw string; re-check
+// the list whenever the gotrue version moves.
+const AUTH_ERRORS = [
+  [/invalid login credentials/i, 'errInvalidLogin'],
+  [/already registered/i, 'errAlreadyRegistered'],
+  [/password should be at least|password is too weak|weak password/i, 'errWeakPassword'],
+  [/email not confirmed/i, 'errEmailNotConfirmed'],
+];
+
+function authErrorText(message) {
+  const hit = AUTH_ERRORS.find(([re]) => re.test(message));
+  return hit ? t()[hit[1]] : message;
 }
 
 async function oauthSignIn(provider) {
@@ -1221,7 +1301,7 @@ async function oauthSignIn(provider) {
     const { error } = await sb.auth.signInWithOAuth({
       provider, options: { redirectTo: window.location.origin + window.location.pathname },
     });
-    if (error) { errEl.textContent = error.message; errEl.hidden = false; }
+    if (error) { errEl.textContent = authErrorText(error.message); errEl.hidden = false; }
   } catch (err) {
     errEl.textContent = err.message || String(err);
     errEl.hidden = false;
@@ -1238,7 +1318,7 @@ async function submitAuth(mode) {
     ? await sb.auth.signUp({ email, password })
     : await sb.auth.signInWithPassword({ email, password });
   if (error) {
-    errEl.textContent = error.message;
+    errEl.textContent = authErrorText(error.message);
     errEl.hidden = false;
     return;
   }
@@ -1251,15 +1331,12 @@ async function submitAuth(mode) {
 
 function openAccountModal() {
   modalOpener = document.activeElement;
-  const overlay = document.getElementById('authModal');
-  overlay.innerHTML =
-    `<div class="card modal-card"><h2>${t().account}</h2>` +
+  showAuthModal(t().account,
     `<p class="item-sub" id="accountEmail"></p>` +
     `<div class="modal-actions">` +
     `<button type="button" class="chip" id="logoutBtn">${t().logout}</button>` +
     `<button type="button" class="chip" id="authCancel">${t().cancel}</button>` +
-    `</div></div>`;
-  overlay.hidden = false;
+    `</div>`);
   document.getElementById('accountEmail').textContent = session.user.email;
   document.getElementById('authCancel').onclick = closeAuthModal;
   document.getElementById('logoutBtn').onclick = async () => {
@@ -2216,15 +2293,23 @@ function detailSkeletonHTML() {
   const chip = '<div class="skel skel-chip"></div>';
   const head = '<th><div class="skel skel-line skel-th"></div></th>';
   const cell = '<td><div class="skel skel-line skel-cell"></div></td>';
+  // Block order mirrors the loaded panel. The community block sits last because
+  // it arrives on a second fetch: appending it below everything already read
+  // means the chart and table never move, so the panel settles once. Its two
+  // reserved rows keep the panel's own height steady. The savings callout sits
+  // above the chart in the loaded panel but gets no reservation here: it renders
+  // only when a sighting actually beats the online low, so a permanent empty
+  // band on every product would cost more than the occasional shift.
   return `<p class="sr-only">${t().loading}</p>` +
     `<div aria-hidden="true">` +
-    `<div class="skel skel-callout"></div>` +
     `<div class="chips range-chips">${chip.repeat(4)}</div>` +
     `<div class="chart-wrap"><div class="skel skel-chart"></div></div>` +
     `<div class="chips series-toggles">${chip.repeat(3)}</div>` +
     `<div class="table-wrap"><table><thead><tr>${head.repeat(5)}</tr></thead><tbody>` +
     `<tr>${cell.repeat(5)}</tr>`.repeat(4) +
-    `</tbody></table></div></div>`;
+    `</tbody></table></div>` +
+    `<div class="skel skel-sighting"></div><div class="skel skel-sighting"></div>` +
+    `</div>`;
 }
 
 // A canvas is opaque to a screen reader, so the chart container carries a
@@ -2327,6 +2412,9 @@ async function renderDetail(summary) {
   const chartSummary = chartSummaryText(seriesEntries);
   el.innerHTML = `<div class="detail-head">${thumbHTML(p.code, 'thumb-detail')}<div><h2>${nameOf(p)}${starHTML(p.code)}</h2>` +
     `<p class="sub-line">${brandOf(p)} &middot; ${catLabel(catOf(p))}</p></div></div>` +
+    // the callout is the most valuable sentence on the page, so it sits above
+    // the fold even though it fills late: it renders only when a sighting beats
+    // the online low, so the shift it causes is rare enough to pay for
     `<div id="savingsCallout"></div>` +
     `<div class="chips range-chips" id="rangeChips"></div>` +
     `<p class="range-note" id="rangeNote" hidden></p>` +
@@ -2334,8 +2422,10 @@ async function renderDetail(summary) {
     (chartSummary ? ` role="img" aria-label="${escapeHtml(chartSummary)}"` : '') + `>` +
     `<canvas id="chart"></canvas></div>` +
     `<div class="chips series-toggles" id="seriesToggles" role="group" aria-label="${t().seriesToggles}"></div>` +
-    `<div id="sightingsSection"></div>` +
-    `<div class="table-wrap"><table id="latestTable"></table></div>`;
+    `<div class="table-wrap"><table id="latestTable"></table></div>` +
+    // the sightings list fills on a second fetch and can run long, so it appends
+    // below everything already read instead of shoving the page down
+    `<div id="sightingsSection"></div>`;
   document.title = `${nameOf(p)} — ${t().h1}`;
 
   // How much history this product actually has, in days — drives which range
@@ -2508,6 +2598,10 @@ async function renderDetail(summary) {
 
 let sightingsCache = [];
 let sightingFormOpen = false;
+let reportingId = null; // sighting whose inline "really report?" step is open
+// one shared status line for outcomes the user must see: submitted / vote or
+// report failed. {text, error} or null.
+let sightingsMsg = null;
 
 // "Xd ago" / "today" — day resolution only, no library (spec doesn't need
 // hour/minute precision for community sightings).
@@ -2534,30 +2628,69 @@ function renderSavingsCallout(list, summary) {
   el.innerHTML = `<div class="savings-callout">${t().savingsCallout(Number(best.price).toFixed(2), pct, onlineLow.toFixed(2))}</div>`;
 }
 
+// A sighting can carry no district at all (free-typed shop, nothing picked in
+// the fallback select), so the span is dropped rather than rendered empty. The
+// >60d "old" state is opacity-only in CSS, which says nothing to a screen
+// reader — the badge carries that same meaning as text.
+function sightingMetaHTML(s, old) {
+  return (s.district ? `<span class="sighting-district">${districtLabel(s.district)}</span>` : '') +
+    (old ? `<span class="badge old" title="${t().oldSightingTitle}">${t().oldSighting}</span>` : '');
+}
+
+const voteLabel = vote => (vote === 1 ? t().upvote : t().downvote);
+
+function voteBtnHTML(s, vote) {
+  const on = s.myVote === vote;
+  return `<button type="button" class="vote-btn${on ? ' active' : ''}" data-vote="${vote}"` +
+    ` aria-pressed="${on}" aria-label="${voteLabel(vote)}">${vote === 1 ? '&#9650;' : '&#9660;'}</button>`;
+}
+
+// Step two of the report: the flag button only arms this panel, this button posts.
+function reportConfirmHTML() {
+  return `<div class="report-confirm">` +
+    `<p class="report-confirm-title">${t().reportConfirmTitle}</p>` +
+    `<p class="field-help">${t().reportConfirmBody}</p>` +
+    `<div class="modal-actions">` +
+    `<button type="button" class="chip report-yes">${t().report}</button>` +
+    `<button type="button" class="chip report-no">${t().close}</button>` +
+    `</div></div>`;
+}
+
 function sightingRowHTML(s) {
   const old = (Date.now() - Date.parse(s.created_at)) / 864e5 > 60;
+  const meta = sightingMetaHTML(s, old);
+  const confirming = s.id === reportingId;
   return `<div class="sighting-row${old ? ' dimmed' : ''}" data-id="${s.id}">` +
     `<div class="sighting-main"><span class="sighting-shop">${escapeHtml(s.shop_name)}</span>` +
     `<span class="sighting-price">$${Number(s.price).toFixed(2)}</span>` +
-    `<span class="sighting-district">${districtLabel(s.district)}</span></div>` +
+    (meta ? `<span class="sighting-meta">${meta}</span>` : '') + `</div>` +
     (s.note ? `<div class="sighting-note">${escapeHtml(s.note)}</div>` : '') +
     `<div class="sighting-foot"><span class="sighting-time">${relativeTime(s.created_at)}</span>` +
     `<span class="sighting-votes">` +
-    `<button type="button" class="vote-btn${s.myVote === 1 ? ' active' : ''}" data-vote="1" aria-label="upvote">&#9650;</button>` +
-    `<span class="vote-score">${s.score}</span>` +
-    `<button type="button" class="vote-btn${s.myVote === -1 ? ' active' : ''}" data-vote="-1" aria-label="downvote">&#9660;</button>` +
-    `<button type="button" class="report-btn${s.myReported ? ' active' : ''}"${s.myReported ? ' disabled' : ''} aria-label="${t().report}">&#9873;</button>` +
-    `</span></div></div>`;
+    voteBtnHTML(s, 1) +
+    // a bare number announces as "3" with no context, so the score carries a
+    // screen-reader-only name beside the visible digits
+    `<span class="vote-score"><span aria-hidden="true">${s.score}</span>` +
+    `<span class="sr-only">${t().voteScore(s.score)}</span></span>` +
+    voteBtnHTML(s, -1) +
+    `<button type="button" class="report-btn${s.myReported ? ' active' : ''}"${s.myReported ? ' disabled' : ''}` +
+    ` aria-expanded="${confirming}" aria-label="${t().report}">&#9873;</button>` +
+    `</span></div>` +
+    (confirming ? reportConfirmHTML() : '') +
+    `</div>`;
 }
 
 // ponytail: Photon (OSM) geocoder — free, no key, CORS-open. Google Places
 // would need a billing account + referrer-restricted key. Swapping providers
 // later only means replacing searchPlaces + placeDistrict below.
 let sfDistrict = ''; // district of the picked place; '' if the user free-typed
+let sfDistrictMissing = false; // a place was picked but carried no district
+let sfFallbackDistrict = ''; // what the user chose in the fallback <select>
 const HK_BBOX = '113.82,22.15,114.44,22.57';
 let sfAcResults = [];
 let sfAcTimer = null;
 let sfAcSeq = 0;
+let sfAcActive = -1; // keyboard-highlighted suggestion, -1 = none
 async function searchPlaces(q) {
   try {
     const res = await fetch(`https://photon.komoot.io/api/?q=${encodeURIComponent(q)}&limit=6&bbox=${HK_BBOX}`);
@@ -2570,19 +2703,70 @@ async function searchPlaces(q) {
 }
 const placeDistrict = p => DISTRICTS.find(d => (p.district || p.city || '').includes(d)) || '';
 
+// form state lives outside the render because renderSightingsList re-runs on
+// every vote/report; it is only cleared when the form itself opens or closes
+function resetSightingForm() {
+  sfDistrict = '';
+  sfDistrictMissing = false;
+  sfFallbackDistrict = '';
+  sfAcResults = [];
+  sfAcActive = -1;
+}
+
+// aria-required duplicates the native `required` for AT that reads the ARIA
+// tree first; the asterisk is the sighted half of the same message.
+const reqMark = () => `<span class="req">*<span class="sr-only">${t().required}</span></span>`;
+
+// the picked place's district wins; otherwise whatever the fallback select holds
+const resolveDistrict = (picked, fallback) => picked || fallback || '';
+
+// The geocoder fills the district only when a suggestion is picked. Anything
+// else — free typing, or a picked place OSM has no district for — falls back to
+// an explicit picker, so a sighting never posts a blank district silently.
+function districtFieldHTML() {
+  if (sfDistrict) {
+    return `<p class="sf-status" id="sfDistrictStatus">${t().districtCaptured(districtLabel(sfDistrict))}</p>`;
+  }
+  return `<div class="field">` +
+    `<label class="field-label" for="sfDistrict">${t().district}</label>` +
+    `<p class="field-help" id="sfDistrictHelp">${sfDistrictMissing ? t().districtUnknown : t().districtHelp}</p>` +
+    `<select id="sfDistrict" aria-describedby="sfDistrictHelp">` +
+    `<option value="">${t().districtPick}</option>` +
+    DISTRICTS.map(d => `<option value="${d}"${d === sfFallbackDistrict ? ' selected' : ''}>${districtLabel(d)}</option>`).join('') +
+    `</select></div>`;
+}
+
 function sightingFormHTML() {
   return `<form class="sighting-form" id="sightingForm">` +
+    `<div class="field">` +
+    `<label class="field-label" for="sfShop">${t().shopName}${reqMark()}</label>` +
+    `<p class="field-help" id="sfShopHelp">${t().shopNameHelp}</p>` +
     `<div class="ac-wrap">` +
-    `<input type="text" id="sfShop" placeholder="${t().shopName}" autocomplete="off" required>` +
-    `<div class="ac-list" id="sfShopAc" hidden></div>` +
+    `<input type="text" id="sfShop" placeholder="${t().shopNameEg}" autocomplete="off" required aria-required="true"` +
+    ` role="combobox" aria-expanded="false" aria-controls="sfShopAc" aria-autocomplete="list" aria-describedby="sfShopHelp">` +
+    `<div class="ac-list" id="sfShopAc" role="listbox" aria-label="${t().shopSuggestions}" hidden></div>` +
+    `</div></div>` +
+    `<div id="sfDistrictField">${districtFieldHTML()}</div>` +
+    `<div class="field">` +
+    `<label class="field-label" for="sfPrice">${t().pricePaid}${reqMark()}</label>` +
+    `<p class="field-help" id="sfPriceHelp">${t().pricePaidHelp}</p>` +
+    // inputmode=decimal so phones open the number pad without type=number's spinners fight
+    `<input type="number" id="sfPrice" step="0.01" min="0" inputmode="decimal" required aria-required="true" aria-describedby="sfPriceHelp">` +
     `</div>` +
-    `<input type="number" id="sfPrice" placeholder="${t().pricePaid}" step="0.01" min="0" required>` +
-    `<input type="text" id="sfNote" placeholder="${t().noteOptional}">` +
+    `<div class="field">` +
+    `<label class="field-label" for="sfNote">${t().noteOptional}</label>` +
+    `<input type="text" id="sfNote" placeholder="${t().noteEg}">` +
+    `</div>` +
+    `<p class="sf-status" id="sfStatus" role="alert" hidden></p>` +
     `<div class="modal-actions">` +
-    `<button type="submit" class="chip">${t().submit}</button>` +
+    `<button type="submit" class="chip" id="sfSubmit">${t().submit}</button>` +
     `<button type="button" class="chip" id="sfCancel">${t().cancel}</button>` +
     `</div></form>`;
 }
+
+// every handler below rebuilds the section's innerHTML, so focus is restored by
+// re-querying the fresh DOM rather than holding a stale element reference
+const focusIn = sel => document.getElementById('sightingsSection')?.querySelector(sel)?.focus();
 
 function renderSightingsList(code, summary) {
   const container = document.getElementById('sightingsSection');
@@ -2590,42 +2774,88 @@ function renderSightingsList(code, summary) {
   const list = visibleSightings(sightingsCache);
   container.innerHTML =
     `<h3 class="community-heading">${t().communityPrices}</h3>` +
+    // role=alert on a node inserted with text already in it still announces,
+    // and every re-render that carries a message inserts it fresh
+    (sightingsMsg ? `<p class="sf-status${sightingsMsg.error ? ' sf-error' : ''}" role="alert">${sightingsMsg.text}</p>` : '') +
     (list.length
       ? `<div class="sightings-list">${list.map(sightingRowHTML).join('')}</div>`
       : `<div class="item-sub">${t().noSightings}</div>`) +
     `<button type="button" class="chip" id="addSightingBtn">${t().addSighting}</button>` +
     (sightingFormOpen ? sightingFormHTML() : '');
 
+  const setMsg = (text, error) => {
+    sightingsMsg = text ? { text, error } : null;
+    renderSightingsList(code, summary);
+  };
+
   document.getElementById('addSightingBtn').onclick = () => {
     if (!session) { openAuthModal('login'); return; }
     sightingFormOpen = !sightingFormOpen;
+    resetSightingForm();
+    sightingsMsg = null;
     renderSightingsList(code, summary);
     if (sightingFormOpen) document.getElementById('sfShop')?.focus();
   };
 
   if (sightingFormOpen) {
-    sfDistrict = '';
     const sfShop = document.getElementById('sfShop');
     const sfShopAc = document.getElementById('sfShopAc');
-    const hideAc = () => { sfShopAc.hidden = true; sfShopAc.innerHTML = ''; };
+    const districtField = document.getElementById('sfDistrictField');
+    // swaps between the "district captured" line and the fallback picker; only
+    // called when the captured value actually changed, so the select a user is
+    // mid-way through choosing isn't rebuilt under them
+    const bindDistrictSelect = () => {
+      const sel = document.getElementById('sfDistrict');
+      if (sel) sel.onchange = () => { sfFallbackDistrict = sel.value; };
+    };
+    const renderDistrictField = () => {
+      districtField.innerHTML = districtFieldHTML();
+      bindDistrictSelect();
+    };
+    const setDistrict = (d, missing) => {
+      if (d === sfDistrict && missing === sfDistrictMissing) return;
+      sfDistrict = d;
+      sfDistrictMissing = missing;
+      renderDistrictField();
+    };
+    bindDistrictSelect(); // the markup is already in sightingFormHTML's output
+    const hideAc = () => {
+      sfShopAc.hidden = true;
+      sfShopAc.innerHTML = '';
+      sfAcActive = -1;
+      sfShop.setAttribute('aria-expanded', 'false');
+      sfShop.removeAttribute('aria-activedescendant');
+    };
+    const pickPlace = i => {
+      const p = sfAcResults[i];
+      if (!p) return;
+      sfShop.value = p.name;
+      const d = placeDistrict(p);
+      setDistrict(d, !d); // picked a place OSM has no district for -> say so
+      hideAc();
+    };
     const renderAc = () => {
       sfShopAc.innerHTML = sfAcResults.map((p, i) => {
         const sub = [p.street, p.district].filter(Boolean).join(', ');
-        return `<div class="ac-item" data-i="${i}">${escapeHtml(p.name)}` +
+        return `<div class="ac-item${i === sfAcActive ? ' active' : ''}" id="sfAcOpt${i}" role="option"` +
+          ` aria-selected="${i === sfAcActive}" data-i="${i}">${escapeHtml(p.name)}` +
           (sub ? `<div class="ac-sub">${escapeHtml(sub)}</div>` : '') + `</div>`;
       }).join('');
-      sfShopAc.hidden = sfAcResults.length === 0;
+      const open = sfAcResults.length > 0;
+      sfShopAc.hidden = !open;
+      sfShop.setAttribute('aria-expanded', String(open));
+      if (open && sfAcActive >= 0) {
+        sfShop.setAttribute('aria-activedescendant', `sfAcOpt${sfAcActive}`);
+        // the list scrolls at 220px, so arrowing past the fold must follow
+        sfShopAc.querySelector('.ac-item.active')?.scrollIntoView({ block: 'nearest' });
+      } else sfShop.removeAttribute('aria-activedescendant');
       sfShopAc.querySelectorAll('.ac-item').forEach(el => {
-        el.onmousedown = () => {
-          const p = sfAcResults[Number(el.dataset.i)];
-          sfShop.value = p.name;
-          sfDistrict = placeDistrict(p);
-          hideAc();
-        };
+        // mousedown, not click: blur fires first on click and would hide the list
+        el.onmousedown = () => pickPlace(Number(el.dataset.i));
       });
     };
     sfShop.oninput = () => {
-      sfDistrict = '';
+      setDistrict('', false); // typing invalidates whatever place was picked
       clearTimeout(sfAcTimer);
       const q = sfShop.value.trim();
       if (q.length < 2) { hideAc(); return; }
@@ -2638,26 +2868,61 @@ function renderSightingsList(code, summary) {
       }, 250);
     };
     sfShop.onblur = hideAc;
-    sfShop.onkeydown = e => { if (e.key === 'Escape') hideAc(); };
+    // the suggestion list used to be mouse-only, which trapped a keyboard user
+    // in an input whose list they could see but never reach
+    sfShop.onkeydown = e => {
+      if (e.key === 'Escape') { hideAc(); return; }
+      if (sfShopAc.hidden || !sfAcResults.length) return;
+      const n = sfAcResults.length;
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        sfAcActive = (sfAcActive + 1) % n;
+        renderAc();
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        sfAcActive = sfAcActive <= 0 ? n - 1 : sfAcActive - 1;
+        renderAc();
+      } else if (e.key === 'Enter' && sfAcActive >= 0) {
+        e.preventDefault(); // choosing a suggestion must not submit the form
+        pickPlace(sfAcActive);
+      }
+    };
     document.getElementById('sfCancel').onclick = () => {
       sightingFormOpen = false;
+      resetSightingForm();
       renderSightingsList(code, summary);
+    };
+    const sfStatus = document.getElementById('sfStatus');
+    const sfSubmit = document.getElementById('sfSubmit');
+    const setFormStatus = (text, error) => {
+      sfStatus.textContent = text;
+      sfStatus.classList.toggle('sf-error', !!error);
+      sfStatus.hidden = !text;
     };
     document.getElementById('sightingForm').onsubmit = async e => {
       e.preventDefault();
+      if (sfSubmit.disabled) return; // in flight already
       const shop_name = document.getElementById('sfShop').value.trim();
       const price = parseFloat(document.getElementById('sfPrice').value);
-      const district = sfDistrict;
+      const district = resolveDistrict(sfDistrict, document.getElementById('sfDistrict')?.value || '');
       const note = document.getElementById('sfNote').value.trim();
       if (!shop_name || !(price >= 0)) return;
+      sfSubmit.disabled = true; // one tap, one sighting
+      setFormStatus(t().submitting, false);
       try {
         await postSighting({ code, shop_name, price, district, note });
-        sightingFormOpen = false;
         sightingsCache = await fetchSightings(code);
+        sightingFormOpen = false;
+        resetSightingForm();
+        // the form is gone after this render, so the confirmation goes on the list
+        sightingsMsg = { text: t().submitted, error: false };
         renderSightingsList(code, summary);
         renderSavingsCallout(sightingsCache, summary);
       } catch {
-        // ponytail: leave the form open with entered values so the user can retry.
+        // leave the form open with the entered values so the user can retry —
+        // but say so, an unchanged form reads as "nothing happened"
+        sfSubmit.disabled = false;
+        setFormStatus(t().submitFailed, true);
       }
     };
   }
@@ -2674,31 +2939,62 @@ function renderSightingsList(code, summary) {
       const prevScore = s.score, prevVote = s.myVote;
       s.score += vote - prevVote;
       s.myVote = vote;
+      sightingsMsg = null;
       renderSightingsList(code, summary);
+      // the whole list is rebuilt, so a keyboard user would otherwise land back
+      // on <body> after voting
+      focusIn(`.sighting-row[data-id="${id}"] .vote-btn[data-vote="${vote}"]`);
       try {
         await voteSighting(id, vote);
       } catch {
+        // the score silently bouncing back reads as a UI glitch, not a failure
         s.score = prevScore; s.myVote = prevVote;
-        renderSightingsList(code, summary);
+        setMsg(t().voteFailed, true);
       }
     };
   });
 
+  // first tap only arms the confirm step below the row — reporting cannot be
+  // undone and three reports hide the sighting from everyone
   container.querySelectorAll('.report-btn').forEach(btn => {
-    btn.onclick = async () => {
+    btn.onclick = () => {
       if (!session) { openAuthModal('login'); return; }
+      const id = btn.closest('.sighting-row').dataset.id;
+      reportingId = reportingId === id ? null : id;
+      sightingsMsg = null;
+      renderSightingsList(code, summary);
+      focusIn(reportingId ? `.sighting-row[data-id="${id}"] .report-yes` : `.sighting-row[data-id="${id}"] .report-btn`);
+    };
+  });
+
+  container.querySelectorAll('.report-no').forEach(btn => {
+    btn.onclick = () => {
+      const id = btn.closest('.sighting-row').dataset.id;
+      reportingId = null;
+      renderSightingsList(code, summary);
+      focusIn(`.sighting-row[data-id="${id}"] .report-btn`);
+    };
+  });
+
+  container.querySelectorAll('.report-yes').forEach(btn => {
+    btn.onclick = async () => {
       const id = btn.closest('.sighting-row').dataset.id;
       const s = sightingsCache.find(x => x.id === id);
       const prevReported = s.myReported, prevCount = s.report_count;
       s.myReported = true;
       s.report_count += 1;
+      reportingId = null;
+      sightingsMsg = null;
       renderSightingsList(code, summary);
       renderSavingsCallout(sightingsCache, summary);
+      // the confirm button just vanished and the flag button is now disabled,
+      // so focus lands on the nearest control still in the same row
+      focusIn(`.sighting-row[data-id="${id}"] .vote-btn`);
       try {
         await reportSighting(id);
       } catch {
         s.myReported = prevReported; s.report_count = prevCount;
-        renderSightingsList(code, summary);
+        setMsg(t().reportFailed, true);
         renderSavingsCallout(sightingsCache, summary);
       }
     };
@@ -2707,6 +3003,9 @@ function renderSightingsList(code, summary) {
 
 async function loadSightings(code, summary) {
   sightingFormOpen = false;
+  reportingId = null;
+  sightingsMsg = null;
+  resetSightingForm();
   sightingsCache = [];
   if (!AUTH_ENABLED || !sb) { renderSightingsList(code, summary); return; }
   document.getElementById('sightingsSection').innerHTML =

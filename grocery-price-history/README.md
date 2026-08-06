@@ -48,7 +48,7 @@ deploy time).
 
 ## UI notes
 
-Changes from the 2026-08-06 UI/UX review:
+### First pass — 2026-08-06 UI/UX review
 
 - **Drops first.** "Biggest drops" renders above the products list — it is the
   clearest demonstration of what this site does that the current prices sites
@@ -69,9 +69,129 @@ Changes from the 2026-08-06 UI/UX review:
   No `og:image` yet — that needs a real PNG, since Facebook/WhatsApp won't render
   an SVG card image.
 
-Known UI gaps not addressed in that pass: the products list still renders 200
-rows unvirtualized with no search debounce, sighting-form inputs are
-placeholder-only with no visible labels, and the auth modal has no focus trap.
+### Second pass
+
+Larger than the first, and grouped by area.
+
+**Search and filters**
+
+- **Token-based fuzzy matching.** Every word in the query must match a product
+  as a word-prefix, a substring, or within one edit (for tokens of four or more
+  characters) — so "mozzarella cheese" finds "Mozzarella Shredded Cheese" even
+  though the words aren't adjacent, and a typo like "mozarella" still matches.
+  Matching is a strict AND across tokens with no partial-match fallback: a query
+  that matches three of four words returns nothing rather than noise.
+- **Relevance ranking while searching.** With a query active, results sort by
+  match quality and the chosen sort (price, name, drop) becomes the tie-break;
+  with no query, the chosen sort is the only order.
+- **Search debounced at 150ms**, so typing doesn't re-filter and re-render the
+  list on every keystroke.
+- **Sticky filter bar** under the header, so the filters stay reachable while
+  scrolling the list. Its offset is measured with a `ResizeObserver` rather than
+  hard-coded, because the header's height changes with viewport width, language
+  and whether the badge legend is dismissed.
+- **Keyboard-usable filter menus.** The store and category menus got
+  `role="menu"` / `role="menuitemcheckbox"`, arrow-key navigation, and focus
+  returned to the trigger on close.
+- **A way out of a dead end.** A clear-all control, plus a real empty state that
+  says nothing matched and offers to clear the filters, instead of an empty
+  list.
+
+**Product list**
+
+- **Rows lead with the low price and the chain holding it** — the number people
+  actually want. That needed a new per-product `cheapest: [STORE, price]` field
+  in the `index.json` export (see `build_index` in `backfill.py`), since the
+  index previously carried only a price range and the per-store series lives in
+  the per-product files. The page falls back to the old price-range rendering
+  when the field is absent, so a stale `index.json` still renders.
+- **Unit price shows whenever it's parseable**, not only when sorting by it —
+  it was already computed, and hiding it behind a sort mode meant most visitors
+  never saw the one number that makes different pack sizes comparable.
+- **Tabular numerals on prices**, so digits line up column-wise.
+- **The nested scroll region is gone.** The products list had its own scrollbar
+  to leave room for the drops panel; the drops panel now sits above it, so the
+  page scrolls as one document.
+- **50-row pagination with a "show more" control** replaces the hard 200-row
+  cap. This is pagination, not virtualization: paging through thousands of rows
+  still accumulates that many DOM nodes. It bounds the *initial* render, not the
+  worst case.
+
+**Typography and IA**
+
+- **A four-step type scale** on CSS custom properties (`--text-meta`,
+  `--text-sm`, `--text-base`, `--text-lg`) replaces roughly eight ad-hoc sizes
+  scattered between .7 and .9rem. Body text went from about 14px to 16px.
+- **A plain-language tagline in the header**, with the stats line demoted below
+  it — the counts were the most prominent text on the page and explained
+  nothing about what the site is for.
+- **A dismissible badge legend** explaining "promo, not cheaper". That
+  explanation previously existed only as a `title` tooltip, which is invisible
+  on touch devices.
+- **Readable section headings**, and the drops methodology moved behind a
+  disclosure rather than sitting inline.
+- **Footer carries last-updated, the source link, and a summary of the known
+  data limits**, so the caveats aren't only in this README.
+- **Loading skeletons** while the 1.1MB `index.json` fetches, and a busy state
+  on the language toggle, which pulls a 554KB `names_tc.json`.
+- **English chain display names** (`PARKnSHOP`, `Wellcome`, …) instead of the
+  raw OPW codes, which are all-caps machine identifiers.
+
+**Chart and detail**
+
+- **DOM legend toggles per series**, keyboard-reachable. Chart.js draws its
+  legend into the canvas, which is not reachable by keyboard at all.
+- **Per-store dash patterns**, so nine lines stay distinguishable without
+  relying on colour alone.
+- **The detail skeleton matches the final panel's shape**, so opening a product
+  settles once instead of reflowing as each piece arrives.
+- **Chart respects reduced motion.**
+- **The price table** gained `caption`/`thead`/`tbody`, is sortable with
+  `aria-sort` reflecting the current column, and defaults to cheapest first.
+- **A screen-reader summary of the chart**, since the canvas itself conveys
+  nothing to assistive tech.
+- **Decorative `alt=""` on product thumbnails** — the product name is already
+  adjacent text, so alt text there would just repeat it.
+- **Range chips disable when they exceed a product's available history**, with a
+  note saying how much history exists, rather than silently drawing a 5-year
+  range over 8 months of data.
+
+**Community sightings and accounts**
+
+- **Visible labels on every sighting field**, replacing placeholder-only
+  labelling — a placeholder disappears as soon as you type, so the field loses
+  its label exactly when you need to check what you're filling in.
+- **The shop field is a proper combobox** with arrow-key selection of the
+  geocoder suggestions. Selecting a suggestion was previously mouse-only.
+- **A district fallback selector**, built from the existing district list. If
+  you free-type a shop name instead of picking a geocoder suggestion, there is
+  no district to derive, and the sighting used to post with an empty one.
+- **Submit, vote and report failures are visible.** They previously rolled the
+  optimistic UI back silently, which is indistinguishable from the action having
+  worked and then undone itself. Submit also disables while in flight.
+- **Reporting takes a confirmation step**, because it is irreversible and three
+  reports hide a sighting.
+- **The auth modal is a real dialog**: `role="dialog"`, `aria-modal`, a labelled
+  heading, a focus trap, and a visible close control.
+- **Password field has a show/hide toggle and correct `autocomplete` values**,
+  so password managers can fill and save.
+- **Supabase errors are mapped to translated text** instead of surfacing the raw
+  English API message.
+
+Known UI gaps after both passes:
+
+- **None of this was verified in a browser.** There is no test infrastructure in
+  this repo. Verification was `node --check` on the extracted inline script,
+  `T.en`/`T.tc` key parity, and unit tests of the pure helpers (search scoring,
+  pagination, table sort, district resolution, Supabase error mapping) sliced
+  verbatim out of the page source. Layout, focus behaviour, and anything
+  DOM-dependent are unverified.
+- **`og:image` still needs a real PNG** — carried over from the first pass.
+- **The sightings list rebuilds the whole form on an unrelated vote**, so text
+  typed into an open sighting form is lost if someone's vote re-renders the
+  list.
+- **The fuzzy matcher uses Levenshtein, not Damerau-Levenshtein**, so
+  transpositions cost two edits: "mikl" does not match "milk".
 
 ## Raw archive storage
 
