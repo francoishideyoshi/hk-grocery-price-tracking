@@ -30,6 +30,17 @@
     --green-bg: #dcfce7; --green-fg: #166534;
     --amber-bg: #fef3c7; --amber-fg: #92400e;
     --error-fg: #dc2626;
+    /* four-step type scale. Everything in rem so the -apple-system-body
+       Dynamic Type hook below still scales the whole page; --text-base is the
+       body size and doubles as the iOS-safe (>=16px at default) input size. */
+    --text-meta: .75rem;   /* timestamps, counts, store tags, table headers */
+    --text-sm: .875rem;    /* secondary lines: brand·category, sub-labels */
+    --text-base: 1rem;     /* body, product names, prices, inputs */
+    --text-lg: 1.25rem;    /* page title, detail/modal headings */
+    /* measured from .app-header by a ResizeObserver (see JS) — the header
+       grows with body.auth-on and with iOS Dynamic Type, so the sticky
+       filter bar can't use a hardcoded offset. */
+    --header-h: 0px;
   }
   @media (prefers-color-scheme: dark) {
     :root {
@@ -55,24 +66,52 @@
   .chip:focus-visible, .item:focus-visible, input:focus-visible, select:focus-visible {
     outline: 2px solid var(--accent); outline-offset: 2px;
   }
+  /* text for screen readers only — table captions and the detail-panel loading
+     announcement, both of which the sighted layout already conveys visually */
+  .sr-only {
+    position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+    overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+  }
 
   .app-header {
     position: sticky; top: 0; z-index: 10;
     background: var(--bg); border-bottom: 1px solid var(--border);
     padding: .75rem 1rem;
   }
-  .app-header h1 { font-size: 1.2rem; margin: 0 0 .15rem; padding-right: 3.5rem; }
-  body.auth-on .app-header h1 { padding-right: 10rem; }
+  .app-header h1 { font-size: var(--text-lg); margin: 0 0 .15rem; }
+  /* the tagline is the second line under the absolutely-positioned header
+     actions, so it needs the same right gutter the h1 has */
+  .app-header h1, .tagline { padding-right: 3.5rem; }
+  body.auth-on .app-header h1, body.auth-on .tagline { padding-right: 10rem; }
   .header-actions { position: absolute; top: .75rem; right: 1rem; display: flex; gap: .4rem; }
   .account-btn { max-width: 110px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .meta { color: var(--muted); font-size: .8rem; margin: 0 0 .6rem; }
+  .tagline { color: var(--muted); font-size: var(--text-sm); margin: 0 0 .2rem; }
+  .meta { color: var(--muted); font-size: var(--text-meta); margin: 0 0 .6rem; }
+  .meta .chip { margin-left: .4rem; }
   input[type=search] {
-    width: 100%; max-width: 420px; padding: .5rem .75rem; font-size: .9rem;
+    /* an under-16px input triggers iOS zoom-on-focus; --text-base is 1rem,
+       which tracks Dynamic Type and is >=16px at default settings */
+    width: 100%; max-width: 420px; padding: .5rem .75rem; font-size: var(--text-base);
     border: 1px solid var(--border); border-radius: 999px;
     background: var(--card-bg); color: var(--fg);
   }
 
+  /* one-line badge key under the filter bar, dismissible (opwLegendDismissed) */
+  .legend {
+    display: flex; align-items: center; flex-wrap: wrap; gap: .2rem .9rem;
+    padding: 0 1rem; border-bottom: 1px solid var(--border);
+    color: var(--muted); font-size: var(--text-meta);
+  }
+  .legend[hidden] { display: none; }
+  .legend-item { display: inline-flex; align-items: center; gap: .35rem; }
+  .legend .cat-clear { margin-left: auto; }
+
+  /* sits directly under the sticky header. z-index 5 keeps it under the header
+     (10) but over the unpositioned page content; the menus inside it stack
+     within this element, so .cat-menu's 30 still wins locally and the modal
+     overlay (50, position:fixed) still wins globally. */
   .filter-bar {
+    position: sticky; top: var(--header-h); z-index: 5;
     display: flex; flex-wrap: wrap; align-items: center; gap: .5rem 1rem;
     padding: .5rem 1rem; border-bottom: 1px solid var(--border); background: var(--bg);
   }
@@ -86,19 +125,35 @@
     background: var(--card-bg); border: 1px solid var(--border);
     border-radius: 12px; padding: .75rem; box-shadow: var(--shadow);
   }
+  /* section headings, not form labels — dropped the uppercase/letter-spacing
+     treatment so "Products" reads as a section at --text-base */
   .card h2 {
-    font-size: .72rem; text-transform: uppercase; letter-spacing: .04em;
-    font-weight: 600; color: var(--muted); margin: 0 0 .5rem;
+    font-size: var(--text-base); font-weight: 600; color: var(--fg); margin: 0 0 .5rem;
   }
+
+  /* heading + its methodology disclosure button */
+  .card-head { display: flex; align-items: center; gap: .1rem; margin: 0 0 .5rem; }
+  .card-head h2 { margin: 0; }
+  .info-btn {
+    display: inline-flex; align-items: center; justify-content: center;
+    min-width: 2.75rem; min-height: 2.75rem; border: none; background: none;
+    color: var(--muted); font: inherit; cursor: pointer; border-radius: 50%; flex-shrink: 0;
+  }
+  .info-btn:hover { background: var(--hover-bg); color: var(--fg); }
+  .disclosure { color: var(--muted); font-size: var(--text-sm); margin: 0 0 .6rem; max-width: 62ch; }
+  .disclosure[hidden] { display: none; }
 
   .products-head { display: flex; align-items: center; justify-content: space-between; gap: .5rem; flex-wrap: wrap; }
   .products-head h2 { margin: 0; flex-shrink: 0; }
   .sort-control { display: flex; align-items: center; gap: .4rem; margin-bottom: .5rem; min-width: 0; flex: 1 1 auto; justify-content: flex-end; }
-  .sort-control label { font-size: .72rem; color: var(--muted); flex-shrink: 0; }
+  .sort-control label { font-size: var(--text-sm); color: var(--muted); flex-shrink: 0; }
+  /* `font: inherit` (needed so form controls don't fall back to the UA font)
+     resets font-size too, so these controls sit at --text-base by inheritance —
+     an explicit font-size before it would be dead. */
   .sort-control select {
     min-height: 2.75rem; flex: 0 1 auto; min-width: 0; max-width: 100%;
     border: 1px solid var(--border); background: var(--card-bg);
-    color: var(--fg); border-radius: 999px; padding: .3rem .7rem; font-size: .8rem;
+    color: var(--fg); border-radius: 999px; padding: .3rem .7rem;
     font: inherit; cursor: pointer; text-overflow: ellipsis;
   }
 
@@ -106,27 +161,30 @@
   .chip {
     display: inline-flex; align-items: center; min-height: 2.75rem;
     border: 1px solid var(--border); background: var(--card-bg); color: var(--fg);
-    border-radius: 999px; padding: .3rem .9rem; font-size: .8rem; font: inherit; cursor: pointer;
+    border-radius: 999px; padding: .3rem .9rem; font: inherit; cursor: pointer;
     transition: background-color .15s ease, border-color .15s ease, transform .1s ease;
   }
   .chip[hidden] { display: none; }
   .chip:hover { background: var(--hover-bg); }
   .chip:active { transform: scale(.97); }
-  .chip .count { color: var(--muted); margin-left: .25rem; font-size: .75rem; }
+  .chip[disabled] { opacity: .55; cursor: default; }
+  .chip[disabled]:hover { background: var(--card-bg); }
+  .chip .count { color: var(--muted); margin-left: .25rem; font-size: var(--text-meta); }
   .chip.active { background: var(--accent); border-color: var(--accent); color: var(--bg); }
   .chip.active:hover { background: var(--accent); }
   .chip.active .count { color: inherit; opacity: .85; }
 
   .cat-picker { position: relative; display: inline-flex; align-items: center; gap: .4rem; }
-  .cat-label { font-size: .75rem; color: var(--muted); }
+  .cat-label { font-size: var(--text-sm); color: var(--muted); }
   .cat-btn { display: inline-flex; align-items: center; gap: .35rem; }
   .cat-btn.active { background: var(--accent); border-color: var(--accent); color: var(--bg); }
+  /* em, not the rem scale: the chevron must track whatever text it sits next to */
   .cat-chevron { display: inline-block; font-size: .75em; transition: transform .15s ease; }
   .cat-btn[aria-expanded="true"] .cat-chevron { transform: rotate(180deg); }
   .cat-clear {
     display: inline-flex; align-items: center; justify-content: center;
     min-width: 2.75rem; min-height: 2.75rem; border: none; background: none;
-    color: var(--muted); font-size: 1.1rem; line-height: 1; cursor: pointer;
+    color: var(--muted); font-size: var(--text-lg); line-height: 1; cursor: pointer;
     border-radius: 50%;
   }
   .cat-clear:hover { background: var(--hover-bg); color: var(--fg); }
@@ -140,15 +198,15 @@
   .cat-menu[hidden] { display: none; }
   .cat-row {
     display: flex; justify-content: space-between; align-items: center; gap: .5rem;
-    min-height: 2.75rem; padding: .45rem .6rem; border-radius: 8px; cursor: pointer; font-size: .85rem;
+    min-height: 2.75rem; padding: .45rem .6rem; border-radius: 8px; cursor: pointer; font-size: var(--text-sm);
   }
   .cat-row:hover { background: var(--hover-bg); }
   .cat-row:active { background: var(--hover-bg); }
-  .cat-row.cat-back { color: var(--muted); font-size: .8rem; }
-  .cat-row .count { color: var(--muted); font-size: .78rem; }
+  .cat-row.cat-back { color: var(--muted); }
+  .cat-row .count { color: var(--muted); font-size: var(--text-meta); }
   .cat-row-right { display: flex; align-items: center; gap: .4rem; }
   .cat-path-label {
-    color: var(--muted); font-size: .75rem; padding: .1rem .6rem .4rem;
+    color: var(--muted); font-size: var(--text-meta); padding: .1rem .6rem .4rem;
     border-bottom: 1px solid var(--border); margin-bottom: .25rem;
   }
 
@@ -156,11 +214,12 @@
     display: inline-block; width: 10px; height: 10px; border-radius: 50%;
     margin-right: .35rem; vertical-align: middle;
   }
-  .store-tag { display:inline-flex; align-items:center; gap:.3rem; font-size:.7rem; color:var(--muted); white-space:nowrap; }
+  .store-tag { display:inline-flex; align-items:center; gap:.3rem; font-size:var(--text-meta); color:var(--muted); white-space:nowrap; }
   .store-tag .store-dot { width:7px; height:7px; margin-right:0; }
   .stores-row { margin-top:.3rem; display:flex; gap:.6rem; flex-wrap:wrap; }
 
-  .result-count { font-size: .75rem; color: var(--muted); margin: 0 0 .5rem; }
+  .result-count { font-size: var(--text-meta); color: var(--muted); margin: 0 0 .5rem; }
+  .empty-state { display: flex; flex-direction: column; align-items: flex-start; gap: .6rem; padding: .5rem 0; }
 
   .list { display: flex; flex-direction: column; gap: .4rem; }
   .drops-list { max-height: 420px; overflow-y: auto; } /* products list lost its cap so the inline chart isn't clipped; drops list keeps the old scroll cap */
@@ -175,11 +234,14 @@
   .item:active { transform: scale(.99); }
   .item.selected { border-color: var(--accent); background: var(--accent-bg-soft); }
   .item-row { display: flex; justify-content: space-between; align-items: flex-start; gap: .5rem; }
-  .item-name { font-weight: 500; font-size: .88rem; }
-  .item-sub { color: var(--muted); font-size: .78rem; margin-top: 1px; }
-  .item-price { font-size: .85rem; font-weight: 500; white-space: nowrap; text-align: right; }
-  .item-unit { font-size: .72rem; font-weight: 400; color: var(--muted); margin-top: 1px; }
-  .item-arrow { color: var(--muted); font-size: .8rem; align-self: center; }
+  .item-name { font-weight: 500; font-size: var(--text-base); }
+  .item-sub { color: var(--muted); font-size: var(--text-sm); margin-top: 1px; }
+  .item-price { font-size: var(--text-base); font-weight: 500; white-space: nowrap; text-align: right; }
+  /* prices sit in a right-aligned column, so proportional digits make the
+     decimal points wander as you scroll — pin them to a fixed advance width */
+  .item-price, .item-unit, .item-range, .badge.drop { font-variant-numeric: tabular-nums; }
+  .item-unit, .item-range { font-size: var(--text-meta); font-weight: 400; color: var(--muted); margin-top: 1px; }
+  .item-arrow { color: var(--muted); font-size: var(--text-sm); align-self: center; }
   .badges { margin-top: .3rem; display: flex; gap: .25rem; flex-wrap: wrap; }
 
   .item-main { display: flex; align-items: center; gap: .5rem; min-width: 0; flex: 1 1 auto; }
@@ -196,10 +258,9 @@
   .drop-item-main { display: flex; align-items: center; gap: .5rem; min-width: 0; flex: 1 1 auto; }
   .drop-item-text { display: flex; flex-direction: column; min-width: 0; }
   .drop-item-right { display: flex; flex-direction: column; align-items: flex-end; gap: .2rem; flex-shrink: 0; }
-  .drop-date { font-size: .72rem; color: var(--muted); white-space: nowrap; }
+  .drop-date { font-size: var(--text-meta); color: var(--muted); white-space: nowrap; }
   .cat-picker-primary .cat-btn { font-weight: 600; }
-  /* products list shows ~15 rows then scrolls; cap lifts while an inline detail/chart is open so the chart isn't clipped */
-  .list.capped { max-height: min(88rem, 82vh); overflow-y: auto; }
+  .show-more-wrap { margin-top: .6rem; }
   .collapse-btn {
     display: inline-flex; align-items: center; justify-content: center;
     min-width: 2.75rem; min-height: 2.75rem; border: none; background: none;
@@ -209,16 +270,44 @@
   .collapse-btn[aria-expanded="false"] .cat-chevron { transform: rotate(-90deg); }
   #productsCard.collapsed .result-count,
   #productsCard.collapsed #results,
+  #productsCard.collapsed #showMoreWrap,
   #productsCard.collapsed .sort-control { display: none; }
   .store-picker .cat-row input[type=checkbox] { pointer-events: none; }
 
+  /* first-paint placeholders: index.json is ~1.1MB and blocks the whole list,
+     so reserve rows of roughly the real height to avoid a layout jump. */
+  /* min-height, not just the inner blocks: it pins the reserved height to a
+     typical .item (name + sub + store tags + badges) regardless of the
+     placeholder content, which is what keeps real rows from shifting the page. */
+  .skel-row { cursor: default; pointer-events: none; min-height: 5.4rem; }
+  .skel { background: var(--hover-bg); border-radius: 6px; animation: skel-pulse 1.4s ease-in-out infinite; }
+  .skel-line { height: .7rem; }
+  .skel-name { width: 11rem; }
+  .skel-sub { width: 7rem; margin-top: .4rem; }
+  .skel-tags { width: 9rem; height: .6rem; margin-top: .55rem; }
+  .skel-price { width: 5rem; height: .9rem; }
+  /* detail-panel placeholders: same block order and the same .chart-wrap height
+     as the loaded panel, so mounting the chart can't shove content down (the
+     mobile breakpoint drops .detail's min-height to auto) */
+  /* heights track their real counterparts: .chip and .th-sort both floor at the
+     2.75rem touch target, a table cell is .875rem of text plus 1rem of padding */
+  /* the sightings block is the one region that arrives on a second fetch, so it
+     is reserved here at roughly two rows' height (border + two text lines) */
+  .skel-sighting { height: 3.6rem; border-radius: 10px; margin-bottom: .5rem; }
+  .skel-chip { width: 3.5rem; height: 2.75rem; border-radius: 999px; }
+  .skel-chart { width: 100%; height: 100%; border-radius: 10px; }
+  .skel-th { width: 3.5rem; height: 2.75rem; }
+  .skel-cell { width: 4rem; height: 1.25rem; }
+  @keyframes skel-pulse { 0%, 100% { opacity: 1; } 50% { opacity: .45; } }
+
   @media (prefers-reduced-motion: reduce) {
     .item, .chip, .cat-chevron { transition: none; }
+    .skel { animation: none; }
   }
 
   .badge {
     display: inline-block; padding: 1px 8px; border-radius: 999px;
-    font-size: .7rem; font-weight: 600; white-space: nowrap;
+    font-size: var(--text-meta); font-weight: 600; white-space: nowrap;
   }
   .badge.fake { background: var(--amber-bg); color: var(--amber-fg); }
   .badge.drop { background: var(--green-bg); color: var(--green-fg); }
@@ -231,20 +320,41 @@
 
   .detail { min-height: 480px; }
   .detail-head { display: flex; align-items: flex-start; gap: .6rem; }
-  .detail h2 { margin: 0 0 .1rem; font-size: 1.1rem; }
-  .detail .sub-line { color: var(--muted); font-size: .85rem; margin: 0 0 .75rem; }
-  .detail-loading, .detail-error {
+  .detail h2 { margin: 0 0 .1rem; font-size: var(--text-lg); }
+  .detail .sub-line { color: var(--muted); font-size: var(--text-sm); margin: 0 0 .75rem; }
+  .detail-error {
     color: var(--muted); text-align: center; padding: 3rem 1rem;
   }
   .range-chips { margin: 0 0 .75rem; }
+  /* why a range chip is disabled — the product simply has less history */
+  .range-note { color: var(--muted); font-size: var(--text-meta); margin: -.4rem 0 .75rem; }
+  .range-note[hidden] { display: none; }
   .chart-wrap { height: 380px; position: relative; }
 
-  table { width: 100%; border-collapse: collapse; font-size: .85rem; margin-top: .75rem; }
+  /* Chart.js draws its legend into the canvas, which can take no focus — so the
+     canvas legend is off and these DOM buttons are the real toggles. */
+  .series-toggles { margin-top: .5rem; }
+  .series-toggle { gap: .4rem; }
+  .series-toggle[aria-pressed="false"] { opacity: .5; text-decoration: line-through; }
+  /* mirrors the dataset's borderDash so the legend and the line agree for
+     users who can't separate the chains by hue */
+  .series-swatch { display: inline-block; width: 20px; height: 3px; border-radius: 2px; flex-shrink: 0; }
+
+  table { width: 100%; border-collapse: collapse; font-size: var(--text-sm); margin-top: .75rem; }
   th {
-    text-align: left; color: var(--muted); font-weight: 600; font-size: .72rem;
+    text-align: left; color: var(--muted); font-weight: 600; font-size: var(--text-meta);
     text-transform: uppercase; letter-spacing: .03em; padding: .4rem .5rem;
     border-bottom: 1px solid var(--border);
   }
+  /* a sortable header is a real button so it is keyboard operable; `font: inherit`
+     picks up the th's uppercase meta size rather than the UA button font */
+  .th-sort {
+    display: inline-flex; align-items: center; gap: .25rem; width: 100%;
+    min-height: 2.75rem; padding: 0; border: none; background: none;
+    color: inherit; font: inherit; cursor: pointer;
+  }
+  .th-sort:hover { color: var(--fg); }
+  th.num .th-sort { justify-content: flex-end; }
   td { padding: .5rem; border-bottom: 1px solid var(--border); }
   tbody tr:hover td { background: var(--hover-bg); }
   th.num, td.num { text-align: right; font-variant-numeric: tabular-nums; }
@@ -254,11 +364,11 @@
 
   .savings-callout {
     margin: 0 0 .75rem; padding: .65rem .85rem; border-radius: 10px;
-    background: var(--green-bg); color: var(--green-fg); font-size: .85rem; font-weight: 600;
+    background: var(--green-bg); color: var(--green-fg); font-size: var(--text-base); font-weight: 600;
   }
 
   .community-heading {
-    font-size: .72rem; text-transform: uppercase; letter-spacing: .04em;
+    font-size: var(--text-meta); text-transform: uppercase; letter-spacing: .04em;
     font-weight: 600; color: var(--muted); margin: 1.25rem 0 .5rem;
   }
   .sightings-list { display: flex; flex-direction: column; gap: .5rem; margin-bottom: .5rem; }
@@ -268,27 +378,43 @@
   }
   .sighting-row.dimmed { opacity: .55; }
   .sighting-main { display: flex; align-items: baseline; gap: .5rem; flex-wrap: wrap; }
-  .sighting-shop { font-weight: 600; font-size: .88rem; }
-  .sighting-price { font-weight: 700; color: var(--accent); font-size: .9rem; }
-  .sighting-district { color: var(--muted); font-size: .78rem; }
-  .sighting-note { color: var(--muted); font-size: .8rem; margin-top: .2rem; }
+  .sighting-shop { font-weight: 600; font-size: var(--text-base); }
+  .sighting-price { font-weight: 700; color: var(--accent); font-size: var(--text-base); }
+  .sighting-district { color: var(--muted); font-size: var(--text-sm); }
+  .sighting-note { color: var(--muted); font-size: var(--text-sm); margin-top: .2rem; }
   .sighting-foot { display: flex; align-items: center; justify-content: space-between; gap: .5rem; margin-top: .35rem; }
-  .sighting-time { color: var(--muted); font-size: .72rem; }
+  .sighting-time { color: var(--muted); font-size: var(--text-meta); }
   .sighting-votes { display: flex; align-items: center; gap: .1rem; }
+  /* see .sort-control select — `font: inherit` supersedes any font-size here */
   .vote-btn, .report-btn {
     display: inline-flex; align-items: center; justify-content: center;
     min-width: 2.75rem; min-height: 2.75rem; border: none; background: none;
-    color: var(--muted); font-size: 1rem; cursor: pointer; border-radius: 50%; font: inherit;
+    color: var(--muted); cursor: pointer; border-radius: 50%; font: inherit;
   }
   .vote-btn:hover, .report-btn:hover { background: var(--hover-bg); }
   .vote-btn.active { color: var(--accent); }
   .report-btn.active { color: var(--error-fg); }
-  .vote-score { min-width: 1.4rem; text-align: center; font-size: .8rem; font-weight: 600; }
+  .vote-score { min-width: 1.4rem; text-align: center; font-size: var(--text-sm); font-weight: 600; }
   .sighting-form { display: flex; flex-direction: column; gap: .5rem; margin-top: .6rem; max-width: 320px; }
   .sighting-form input, .sighting-form select {
-    min-height: 2.75rem; padding: .5rem .75rem; font-size: 1rem; font: inherit;
+    min-height: 2.75rem; padding: .5rem .75rem; font: inherit;
     border: 1px solid var(--border); border-radius: 8px; background: var(--bg); color: var(--fg);
   }
+  /* a placeholder is not a label — it vanishes on the first keystroke and is
+     invisible to a user who tabs in, so every input carries a real one above it */
+  .field { display: flex; flex-direction: column; gap: .25rem; }
+  .field-label { display: block; font-size: var(--text-sm); font-weight: 600; }
+  .field-help { color: var(--muted); font-size: var(--text-meta); margin: 0; }
+  .req { color: var(--error-fg); margin-left: .15rem; }
+  /* one status line shared by submit/vote/report outcomes */
+  .sf-status { font-size: var(--text-sm); color: var(--accent); margin: .35rem 0; }
+  .sf-status.sf-error { color: var(--error-fg); }
+  .sf-status[hidden] { display: none; }
+  .sf-status .chip { margin-left: .4rem; }
+  .sighting-meta { display: flex; align-items: center; gap: .4rem; flex-wrap: wrap; }
+  /* the >60d "dimmed" treatment is opacity-only, which says nothing to a screen
+     reader and little to a low-vision one — this tag carries the same meaning */
+  .badge.old { background: var(--hover-bg); color: var(--muted); }
   .ac-wrap { position: relative; }
   .ac-list {
     position: absolute; top: 100%; left: 0; right: 0; z-index: 20; margin-top: .15rem;
@@ -296,22 +422,35 @@
     background: var(--card-bg); color: var(--fg);
   }
   .ac-item { padding: .5rem .75rem; cursor: pointer; }
-  .ac-item:hover { background: var(--hover-bg); }
-  .ac-sub { color: var(--muted); font-size: .78rem; }
+  .ac-item:hover, .ac-item.active { background: var(--hover-bg); }
+  .ac-sub { color: var(--muted); font-size: var(--text-sm); }
 
   @media (max-width: 640px) {
     .layout { padding: .75rem; }
-    input[type=search] { font-size: 1rem; } /* <16px input font triggers iOS zoom-on-focus; 1rem tracks Dynamic Type and is >=16px at default settings */
     .chip { padding: .45rem .8rem; }
     .cat-row { padding: .6rem; }
     .filter-bar .chips { flex-wrap: nowrap; overflow-x: auto; width: 100%; padding-bottom: .25rem; }
     .cat-menu { max-width: calc(100vw - 2rem); min-width: min(300px, calc(100vw - 2rem)); }
     .detail { min-height: auto; }
+    /* unchanged at 300px: the canvas legend is off (see .series-toggles), so
+       the plot now gets the full height instead of sharing it with a legend */
     .chart-wrap { height: 300px; }
+    /* nine chains would wrap to three rows at 375px and push the chart off the
+       first screen — scroll them sideways like the filter bar's chips instead */
+    .series-toggles { flex-wrap: nowrap; overflow-x: auto; padding-bottom: .25rem; }
   }
 
-  .site-footer { text-align: center; padding: 1.5rem 1rem; font-size: .75rem; color: var(--muted); }
+  .site-footer { text-align: center; padding: 1.5rem 1rem; font-size: var(--text-meta); color: var(--muted); }
   .site-footer a { color: var(--muted); overflow-wrap: anywhere; }
+  .site-footer p { margin: 0 0 .3rem; }
+  .site-footer .disclosure { margin: .3rem auto 0; text-align: left; }
+  .site-footer .disclosure p { margin: 0 0 .5rem; }
+  /* a text-link that is really a button (toggles the disclosure below it) */
+  .link-btn {
+    border: none; background: none; color: var(--muted); font: inherit;
+    text-decoration: underline; cursor: pointer; padding: .5rem; min-height: 2.75rem;
+  }
+  .link-btn:hover { color: var(--fg); }
 
   .star {
     display: inline-flex; align-items: center; justify-content: center;
@@ -327,20 +466,26 @@
   }
   .modal-overlay[hidden] { display: none; }
   .modal-card { width: 100%; max-width: 340px; }
-  .modal-card h2 { margin: 0 0 .75rem; font-size: 1rem; }
+  .modal-card h2 { margin: 0; font-size: var(--text-lg); }
+  /* the × sits beside the title so the dialog has a dismissal affordance that
+     is visible before you reach the Cancel button at the bottom */
+  .modal-head { display: flex; align-items: flex-start; justify-content: space-between; gap: .5rem; margin: 0 0 .75rem; }
+  .pw-wrap { display: flex; align-items: center; gap: .25rem; }
+  .pw-wrap input { flex: 1 1 auto; margin-bottom: 0; }
+  .pw-toggle { white-space: nowrap; font-size: var(--text-sm); padding: .5rem .4rem; }
   .modal-card input {
     display: block; width: 100%; margin-bottom: .5rem; padding: .5rem .75rem;
-    font-size: 1rem; border: 1px solid var(--border); border-radius: 8px;
+    font-size: var(--text-base); border: 1px solid var(--border); border-radius: 8px;
     background: var(--bg); color: var(--fg);
   }
   .modal-actions { display: flex; gap: .5rem; flex-wrap: wrap; margin-top: .5rem; }
-  .auth-error { color: var(--error-fg); font-size: .8rem; margin-bottom: .5rem; }
-  .auth-note { color: var(--accent); font-size: .8rem; margin-bottom: .5rem; }
+  .auth-error { color: var(--error-fg); font-size: var(--text-sm); margin-bottom: .5rem; }
+  .auth-note { color: var(--accent); font-size: var(--text-sm); margin-bottom: .5rem; }
   .oauth-buttons { display: flex; flex-direction: column; gap: .5rem; margin-bottom: .75rem; }
   .oauth-btn { width: 100%; justify-content: center; font-weight: 500; }
   .oauth-apple { background: #000; border-color: #000; color: #fff; }
   .oauth-apple:hover { background: #1a1a1a; }
-  .auth-divider { display: flex; align-items: center; gap: .6rem; margin: 0 0 .75rem; color: var(--muted); font-size: .78rem; }
+  .auth-divider { display: flex; align-items: center; gap: .6rem; margin: 0 0 .75rem; color: var(--muted); font-size: var(--text-sm); }
   .auth-divider::before, .auth-divider::after { content: ''; flex: 1; border-top: 1px solid var(--border); }
 </style>
 </head>
@@ -351,7 +496,8 @@
     <button type="button" class="chip lang-toggle" id="langToggle">繁</button>
   </div>
   <h1 id="pageTitle">HK Grocery Price History</h1>
-  <div class="meta" id="meta">Loading index.json ...</div>
+  <p class="tagline" id="tagline"></p>
+  <div class="meta" id="meta"></div>
   <input type="search" id="search" placeholder="Search product name or brand...">
 </header>
 
@@ -362,21 +508,28 @@
       <span id="catBtnText">All categories</span><span class="cat-chevron" aria-hidden="true">&#9662;</span>
     </button>
     <button type="button" class="cat-clear" id="catClear" hidden>&times;</button>
-    <div class="cat-menu" id="catMenu" hidden></div>
+    <div class="cat-menu" id="catMenu" role="menu" hidden></div>
   </div>
   <div class="cat-picker store-picker">
     <button type="button" class="chip cat-btn" id="storeBtn" aria-haspopup="true" aria-expanded="false">
       <span id="storeBtnText">All supermarkets</span><span class="cat-chevron" aria-hidden="true">&#9662;</span>
     </button>
-    <div class="cat-menu" id="storeMenu" hidden></div>
+    <button type="button" class="cat-clear" id="storeClear" hidden>&times;</button>
+    <div class="cat-menu" id="storeMenu" role="menu" hidden></div>
   </div>
   <button type="button" class="chip" id="trackerChip" hidden></button>
 </div>
 
+<div class="legend" id="badgeLegend"></div>
+
 <div class="layout">
   <div class="below-grid">
     <div class="card">
-      <h2 id="dropsHeading">Biggest drops (window-low, &ge;10% below 90-day median)</h2>
+      <div class="card-head">
+        <h2 id="dropsHeading">Biggest drops</h2>
+        <button type="button" class="info-btn" id="dropsInfoBtn" aria-expanded="false" aria-controls="dropsInfo">&#9432;</button>
+      </div>
+      <p class="disclosure" id="dropsInfo" hidden></p>
       <div class="list drops-list" id="drops"></div>
     </div>
     <div class="card" id="productsCard">
@@ -390,6 +543,7 @@
       </div>
       <div class="result-count" id="resultCount"></div>
       <div class="list" id="results"></div>
+      <div class="show-more-wrap" id="showMoreWrap"></div>
     </div>
   </div>
 </div>
@@ -434,10 +588,13 @@ fetch('./images.json').then(r => r.ok ? r.json() : {}).then(d => {
   if (INDEX) renderAll();
 }).catch(() => {});
 
+// alt="" (not a missing alt, which makes a screen reader read the URL): every
+// thumbnail sits next to the product name it depicts, so it is decorative —
+// including the larger .thumb-detail one, which sits beside the detail <h2>.
 function thumbHTML(code, extraClass) {
   const path = IMAGES[code];
   const img = path
-    ? `<img src="https://online-price-watch.consumer.org.hk${path}" loading="lazy" referrerpolicy="no-referrer" onerror="this.remove()">`
+    ? `<img src="https://online-price-watch.consumer.org.hk${path}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.remove()">`
     : '';
   return `<span class="thumb${extraClass ? ' ' + extraClass : ''}">${img}</span>`;
 }
@@ -459,6 +616,18 @@ let catMenuOpen = false;
 // --build-names-tc from sampled archive snapshots.
 let NAMES_TC = null;
 const tcOf = code => (NAMES_TC ? NAMES_TC[code] || null : null);
+// ponytail: single loader for the three places that used to inline this
+// fetch, because the search haystack cache is derived from NAMES_TC and has
+// to be dropped the moment it lands — see SEARCH_HAYSTACK below.
+async function loadNamesTC() {
+  if (NAMES_TC) return;
+  try {
+    NAMES_TC = await fetch('./names_tc.json').then(r => r.json());
+  } catch {
+    NAMES_TC = {};
+  }
+  SEARCH_HAYSTACK.clear();
+}
 const nameOf = p => (state.lang === 'tc' && tcOf(p.code)?.name) || p.name;
 const brandOf = p => (state.lang === 'tc' && tcOf(p.code)?.brand) || p.brand;
 const catOf = p => (state.lang === 'tc' && tcOf(p.code)?.cat?.length ? tcOf(p.code).cat : p.category);
@@ -468,13 +637,26 @@ const catOf = p => (state.lang === 'tc' && tcOf(p.code)?.cat?.length ? tcOf(p.co
 const T = {
   en: {
     h1: 'HK Grocery Price History',
+    tagline: 'Six years of supermarket prices — see whether that "special offer" is a real discount.',
+    metaLoading: 'Loading six years of prices...',
+    indexFailed: 'Could not load the price data. Check your connection and try again.',
+    retry: 'Retry',
+    loadingLang: 'Loading Chinese product names...',
     searchPlaceholder: 'Search product name or brand...',
     allCategories: 'All categories',
     allIn: x => `All in ${x}`,
     back: '‹ Back',
     products: 'Products',
     showing: (shown, total) => `Showing ${shown} of ${total} products`,
-    dropsTitle: 'Biggest drops (window-low, ≥10% below 90-day median)',
+    // price and store are pre-formatted, so each language owns its word order
+    cheapestAt: (price, store) => `${price} at ${store}`,
+    showMore: (n, remaining) => `Show ${n} more (${remaining} remaining)`,
+    dropsTitle: 'Biggest drops',
+    methodLabel: 'How this is worked out',
+    dropsMethod: 'A drop means a chain’s current price is a new low for the window and at least 10% below its median price over the past 90 days. The median carries the last known price forward across days with no snapshot, so it is an approximation.',
+    legendDrop: 'price really is below its recent normal',
+    legendFake: 'on offer, but no cheaper than usual',
+    dismiss: 'Hide this note',
     noneMatch: 'None match current filters.',
     selectProduct: 'Select a product to see its price history.',
     loading: 'Loading price history...',
@@ -485,6 +667,11 @@ const T = {
     fakeLabel: store => `promo, not cheaper: ${store}`,
     dropLabel: store => `drop: ${store}`,
     sourcePrefix: 'Source: ',
+    updatedLabel: d => `Prices last updated ${d}`,
+    howWorks: 'How this works',
+    howData: 'Prices come from the Consumer Council’s Online Price Watch, rebuilt from daily snapshots of that site kept in the data.gov.hk historical archive.',
+    howGaps: 'Those snapshots were not captured every single day — some dates have none at all — so the history has gaps. The snapshot count above is what is actually archived, not calendar days.',
+    howFake: 'The "promo, not cheaper" test carries each chain’s last known price forward across a 90-day window and compares the current price with that window’s median. It is a close approximation, not a true daily average.',
     meta: (n, m, start, end) => `${n} products, ${m} snapshots (${start} to ${end})`,
     rangeLabels: { '3M': '3M', '1Y': '1Y', '3Y': '3Y', All: 'All' },
     account: 'Account', login: 'Log in', signUp: 'Sign up', logout: 'Log out',
@@ -493,7 +680,14 @@ const T = {
     noTracked: 'No tracked products yet',
     confirmSent: 'Confirmation email sent',
     category: 'Category', clearCategory: 'Clear category',
+    clearFilters: 'Clear all filters', clearStores: 'Clear supermarket filter',
+    categoryMenu: 'Category menu', storeMenu: 'Supermarket menu',
     chartHeading: 'Price chart',
+    seriesToggles: 'Show or hide supermarkets on the chart',
+    chartSummary: (n, start, end, low, high) =>
+      `Price history for ${n} supermarkets from ${start} to ${end}; current prices run from $${low} to $${high}.`,
+    tableCaption: 'Latest price, series median and current offer for each supermarket.',
+    historyNote: m => `Only ${m} month${m === 1 ? '' : 's'} of price history for this product.`,
     sortLabel: 'Sort', sortStores: 'Most supermarkets',
     sortPrice: 'Lowest price', sortUnit: 'Price per unit',
     allStores: 'All supermarkets', noStores: 'No supermarkets', storesSelected: n => `${n} supermarkets`,
@@ -503,16 +697,55 @@ const T = {
     submit: 'Submit', noSightings: 'No community sightings yet — be the first to report one.',
     report: 'Report', today: 'today', daysAgo: d => `${d}d ago`,
     savingsCallout: (price, pct, online) => `Community found it for $${price} — ${pct}% under the $${online} online low.`,
+    required: 'required',
+    shopNameEg: 'e.g. Wellcome Tai Po Plaza',
+    shopNameHelp: 'Start typing to pick the shop from the map, or just type any name.',
+    shopSuggestions: 'Shop suggestions',
+    pricePaidHelp: 'The price you actually paid, for one unit.',
+    noteEg: 'e.g. member price, last 2 packs',
+    districtPick: 'Select a district',
+    districtHelp: 'Filled in for you when you pick a shop from the suggestions.',
+    districtUnknown: 'That shop came with no district — please pick one.',
+    districtCaptured: d => `District captured: ${d}`,
+    submitting: 'Submitting...',
+    submitted: 'Thanks — your price is now listed.',
+    submitFailed: 'Could not post your price. Check your connection and try again.',
+    voteFailed: 'Could not save your vote. Please try again.',
+    reportFailed: 'Could not send your report. Please try again.',
+    upvote: 'Upvote', downvote: 'Downvote', voteScore: n => `Score ${n}`,
+    oldSighting: 'old', oldSightingTitle: 'Reported more than 60 days ago',
+    reportConfirmTitle: 'Report this price?',
+    reportConfirmBody: 'Reporting flags this as wrong or fake. It cannot be undone, and three reports hide it from everyone.',
+    close: 'Close',
+    showPassword: 'Show password', hidePassword: 'Hide password',
+    passwordRules: 'At least 6 characters.',
+    errInvalidLogin: 'Wrong email or password.',
+    errAlreadyRegistered: 'That email already has an account — log in instead.',
+    errWeakPassword: 'Password too short — use at least 6 characters.',
+    errEmailNotConfirmed: 'Confirm your email first — check your inbox for the link.',
   },
   tc: {
     h1: '香港超市價格紀錄',
+    tagline: '六年超市價格紀錄，睇吓個「特價」係咪真係平咗。',
+    metaLoading: '載入六年價格資料中⋯',
+    indexFailed: '載入價格資料失敗，請檢查網絡後再試。',
+    retry: '重試',
+    loadingLang: '載入中文貨品名稱中⋯',
     searchPlaceholder: '搜尋貨品名稱或品牌⋯',
     allCategories: '所有分類',
     allIn: x => `${x}（全部）`,
     back: '‹ 返回',
     products: '貨品',
     showing: (shown, total) => `顯示 ${total} 件貨品中的 ${shown} 件`,
-    dropsTitle: '最大跌幅（視窗新低，低於90日中位數≥10%）',
+    // 「惠康 $32.90」— 中文以店名帶頭，不用英文的 "at" 語序
+    cheapestAt: (price, store) => `${store} ${price}`,
+    showMore: (n, remaining) => `再顯示 ${n} 件（尚餘 ${remaining} 件）`,
+    dropsTitle: '最大跌幅',
+    methodLabel: '點樣計出嚟',
+    dropsMethod: '「減價」即係該超市現價創出視窗新低，而且較過去90日的中位價低最少10%。無快照嘅日子會沿用上一個已知價格，所以中位價只屬近似值。',
+    legendDrop: '現價真係低過近期正常價',
+    legendFake: '標住優惠，但其實無平過',
+    dismiss: '隱藏此說明',
     noneMatch: '沒有符合篩選的貨品。',
     selectProduct: '請選擇貨品以查看價格紀錄。',
     loading: '載入價格紀錄中⋯',
@@ -523,6 +756,11 @@ const T = {
     fakeLabel: store => `優惠但未減價：${store}`,
     dropLabel: store => `減價：${store}`,
     sourcePrefix: '資料來源：',
+    updatedLabel: d => `價格更新至 ${d}`,
+    howWorks: '資料點嚟？',
+    howData: '價格來自消費者委員會「網上價格一覽通」，並根據 data.gov.hk 歷史檔案庫保存的每日網站快照重建。',
+    howGaps: '快照並非每日都有，部分日子完全無記錄，所以價格紀錄會有斷層。上面的快照數目係實際存檔數量，而非日曆日數。',
+    howFake: '「優惠但未減價」的計法：以90日為窗口，無快照嘅日子沿用上一個已知價格，再將現價與該窗口的中位價比較。此為近似計算，並非真正每日平均。',
     meta: (n, m, start, end) => `${n} 件貨品，${m} 個快照（${start} 至 ${end}）`,
     rangeLabels: { '3M': '3個月', '1Y': '1年', '3Y': '3年', All: '全部' },
     account: '帳戶', login: '登入', signUp: '註冊', logout: '登出',
@@ -531,7 +769,14 @@ const T = {
     noTracked: '尚未追蹤任何產品',
     confirmSent: '已發送確認電郵',
     category: '分類', clearCategory: '清除分類',
+    clearFilters: '清除所有篩選', clearStores: '清除超市篩選',
+    categoryMenu: '分類選單', storeMenu: '超市選單',
     chartHeading: '價格圖表',
+    seriesToggles: '在圖表顯示或隱藏超市',
+    chartSummary: (n, start, end, low, high) =>
+      `${n} 間超市的價格紀錄，由 ${start} 至 ${end}，現價由 $${low} 至 $${high}。`,
+    tableCaption: '各超市的最新價、全期中位數及現行優惠。',
+    historyNote: m => `此貨品只有 ${m} 個月價格紀錄。`,
     sortLabel: '排序', sortStores: '有售超市數',
     sortPrice: '最低價', sortUnit: '單位價格',
     allStores: '所有超市', noStores: '沒有超市', storesSelected: n => `已選 ${n} 間超市`,
@@ -541,18 +786,51 @@ const T = {
     submit: '提交', noSightings: '尚未有街坊回報，成為第一位吧。',
     report: '檢舉', today: '今天', daysAgo: d => `${d}天前`,
     savingsCallout: (price, pct, online) => `街坊回報 $${price} 有售 — 較網上最低價 $${online} 平 ${pct}%。`,
+    required: '必填',
+    shopNameEg: '例如：惠康大埔廣場',
+    shopNameHelp: '輸入店名即可從地圖揀選，亦可自行填寫任何名稱。',
+    shopSuggestions: '店舖建議',
+    pricePaidHelp: '請填你實際付款嘅金額，以一件計。',
+    noteEg: '例如：會員價、最後兩包',
+    districtPick: '請選擇地區',
+    districtHelp: '從建議揀選店舖後會自動填上。',
+    districtUnknown: '該店舖沒有地區資料，請自行選擇。',
+    districtCaptured: d => `已記錄地區：${d}`,
+    submitting: '提交中⋯',
+    submitted: '多謝！你回報嘅價格已經上榜。',
+    submitFailed: '未能提交價格，請檢查網絡後再試。',
+    voteFailed: '未能儲存你嘅投票，請再試一次。',
+    reportFailed: '未能提交檢舉，請再試一次。',
+    upvote: '讚好', downvote: '踩低', voteScore: n => `評分 ${n}`,
+    oldSighting: '舊', oldSightingTitle: '超過 60 日前回報',
+    reportConfirmTitle: '檢舉呢個價格？',
+    reportConfirmBody: '檢舉即係標示此回報有誤或造假，一經提交不可撤回；累積三次檢舉，該回報會對所有人隱藏。',
+    close: '關閉',
+    showPassword: '顯示密碼', hidePassword: '隱藏密碼',
+    passwordRules: '最少 6 個字元。',
+    errInvalidLogin: '電郵或密碼不正確。',
+    errAlreadyRegistered: '此電郵已註冊，請直接登入。',
+    errWeakPassword: '密碼太短，請使用最少 6 個字元。',
+    errEmailNotConfirmed: '請先確認電郵，收件箱應有確認連結。',
   },
 };
 const t = () => T[state.lang];
 
-// Chain display names in TC mode — codes stay the keys/colors, only the
-// rendered label changes.
+// Chain display names — codes stay the keys/colors, only the rendered label
+// changes. The raw OPW codes are SHOUTING ("PARKNSHOP"), so English gets a
+// brand-cased map of its own rather than falling through to the code.
 const CHAIN_TC = {
   PARKNSHOP: '百佳', WELLCOME: '惠康', AEON: 'AEON', WATSONS: '屈臣氏',
   MANNINGS: '萬寧', JASONS: 'Market Place', DCHFOOD: '大昌食品',
   LUNGFUNG: '龍豐', SASA: '莎莎',
 };
-const storeLabel = sm => (state.lang === 'tc' ? CHAIN_TC[sm] || sm : sm);
+const CHAIN_EN = {
+  PARKNSHOP: 'PARKnSHOP', WELLCOME: 'Wellcome', AEON: 'AEON', WATSONS: 'Watsons',
+  MANNINGS: 'Mannings', JASONS: 'Market Place', DCHFOOD: 'DCH Food Mart',
+  LUNGFUNG: 'Lung Fung', SASA: 'Sasa',
+};
+// unknown codes still render as-is rather than disappearing
+const storeLabel = sm => (state.lang === 'tc' ? CHAIN_TC[sm] : CHAIN_EN[sm]) || sm;
 
 // Permanent per-chain colors — placeholders until user assigns final ones. Keys = OPW Supermarket Codes.
 // Every value below clears WCAG's 3:1 non-text contrast floor against the LIGHT
@@ -569,12 +847,41 @@ const STORE_COLORS = {
 const STORE_COLORS_DARK = {
   AEON: '#ba68c8', DCHFOOD: '#a1887f', LUNGFUNG: '#f06292',
 };
+// Hue alone can't separate nine lines — WELLCOME's red and JASONS' green are
+// the same line to a colorblind reader — so each chain also owns a dash
+// pattern, keyed by code so it is stable across products. First two solid: the
+// common one- or two-chain product stays clean.
+// ponytail: every pattern is even-length so the CSS swatch below can walk it as
+// on/off pairs; an odd-length dash phase-inverts on repeat and would disagree
+// with the canvas. Keep new entries even.
+const STORE_DASH = {
+  PARKNSHOP: [], WELLCOME: [], AEON: [8, 4],
+  WATSONS: [2, 3], MANNINGS: [12, 4], JASONS: [8, 4, 2, 4],
+  DCHFOOD: [1, 4], LUNGFUNG: [14, 4, 2, 4], SASA: [5, 3, 5, 8],
+};
+const storeDash = sm => STORE_DASH[sm] || [];
 const STORE_ORDER = Object.keys(STORE_COLORS);
 // stores = the set of CHECKED (included) supermarkets; all checked by default.
 STORE_ORDER.forEach(s => state.stores.add(s));
 const isDark = () => matchMedia('(prefers-color-scheme: dark)').matches;
 const storeColor = sm => (isDark() && STORE_COLORS_DARK[sm]) || STORE_COLORS[sm] || '#9e9e9e';
 const storeTag = sm => `<span class="store-tag"><span class="store-dot" style="background:${storeColor(sm)}"></span>${storeLabel(sm)}</span>`;
+const reduceMotion = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+// Repaints a chain's borderDash as a CSS gradient for the legend swatch — close
+// enough to read as "the dashed one", not a pixel-perfect replica of the line.
+function storeSwatchStyle(sm) {
+  const color = storeColor(sm);
+  const dash = storeDash(sm);
+  if (!dash.length) return `background:${color}`;
+  let pos = 0;
+  const stops = dash.map((len, i) => {
+    const stop = `${i % 2 ? 'transparent' : color} ${pos}px ${pos + len}px`;
+    pos += len;
+    return stop;
+  });
+  return `background:repeating-linear-gradient(90deg, ${stops.join(',')})`;
+}
 
 // HK 18 districts for the sightings "where did you see it" picker.
 const DISTRICTS = [
@@ -622,9 +929,73 @@ matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
   else if (selectedSummary) renderDetail(selectedSummary);
 });
 
+// A disclosure is a button that shows/hides the block it points at (aria-controls).
+// Used by the drops methodology note and the footer's "How this works" — touch
+// devices never see a title= tooltip, so both have to be real toggles.
+function wireDisclosure(btn, body, onChange) {
+  btn.onclick = () => {
+    body.hidden = !body.hidden;
+    btn.setAttribute('aria-expanded', String(!body.hidden));
+    onChange?.(!body.hidden);
+  };
+}
+
+let indexError = false; // index.json failed to load; #meta shows the retry instead
+
+// Stats line, loading line and load-failure retry all share #meta, so one
+// renderer owns it — a language switch has to re-translate whichever is showing.
+function renderMeta() {
+  const el = document.getElementById('meta');
+  if (indexError) {
+    el.innerHTML = `<span>${t().indexFailed}</span>` +
+      `<button type="button" class="chip" id="retryIndex">${t().retry}</button>`;
+    document.getElementById('retryIndex').onclick = loadIndex;
+    return;
+  }
+  el.textContent = INDEX
+    ? t().meta(INDEX.products.length, INDEX.meta.snapshot_count, INDEX.meta.window_start, INDEX.meta.window_end)
+    : t().metaLoading;
+}
+
+let legendDismissed = localStorage.getItem('opwLegendDismissed') === '1';
+
+// The badge key: the fake/drop explanation used to live only in a title=
+// tooltip, which touch devices never show.
+function renderLegend() {
+  const el = document.getElementById('badgeLegend');
+  el.hidden = legendDismissed;
+  if (legendDismissed) { el.innerHTML = ''; return; }
+  el.innerHTML =
+    `<span class="legend-item"><span class="badge drop">${t().badgeDrop}</span>${t().legendDrop}</span>` +
+    `<span class="legend-item"><span class="badge fake">${t().badgeFake}</span>${t().legendFake}</span>` +
+    `<button type="button" class="cat-clear" id="legendDismiss" aria-label="${t().dismiss}">&times;</button>`;
+  document.getElementById('legendDismiss').onclick = () => {
+    legendDismissed = true;
+    localStorage.setItem('opwLegendDismissed', '1');
+    renderLegend();
+  };
+}
+
+let howOpen = false; // survives the re-render a language switch causes
+
+function renderFooter() {
+  const el = document.getElementById('siteFooter');
+  if (!INDEX) { el.innerHTML = ''; return; }
+  el.innerHTML =
+    `<p>${t().updatedLabel(INDEX.meta.window_end)}</p>` +
+    `<p>${t().sourcePrefix}<a href="${INDEX.meta.source}" target="_blank" rel="noopener">${INDEX.meta.source}</a></p>` +
+    `<button type="button" class="link-btn" id="howBtn" aria-expanded="${howOpen}" aria-controls="howBody">${t().howWorks}</button>` +
+    `<div class="disclosure" id="howBody"${howOpen ? '' : ' hidden'}>` +
+    `<p>${t().howData}</p><p>${t().howGaps}</p><p>${t().howFake}</p></div>`;
+  wireDisclosure(
+    document.getElementById('howBtn'), document.getElementById('howBody'),
+    open => { howOpen = open; });
+}
+
 function applyLangToPage() {
   document.documentElement.lang = state.lang === 'tc' ? 'zh-Hant' : 'en';
   document.getElementById('pageTitle').textContent = t().h1;
+  document.getElementById('tagline').textContent = t().tagline;
   document.title = selectedSummary ? `${nameOf(selectedSummary)} — ${t().h1}` : t().h1;
   document.getElementById('search').placeholder = t().searchPlaceholder;
   document.getElementById('search').setAttribute('aria-label', t().searchPlaceholder);
@@ -633,14 +1004,18 @@ function applyLangToPage() {
   document.getElementById('langToggle').textContent = state.lang === 'tc' ? 'EN' : '繁';
   document.getElementById('catLabel').textContent = t().category;
   document.getElementById('catClear').setAttribute('aria-label', t().clearCategory);
+  document.getElementById('storeClear').setAttribute('aria-label', t().clearStores);
+  document.getElementById('catMenu').setAttribute('aria-label', t().categoryMenu);
+  document.getElementById('storeMenu').setAttribute('aria-label', t().storeMenu);
   document.getElementById('sortLabel').textContent = t().sortLabel;
-  if (INDEX) {
-    document.getElementById('meta').textContent =
-      t().meta(INDEX.products.length, INDEX.meta.snapshot_count, INDEX.meta.window_start, INDEX.meta.window_end);
-    document.getElementById('siteFooter').innerHTML =
-      `${t().sourcePrefix}<a href="${INDEX.meta.source}" target="_blank" rel="noopener">${INDEX.meta.source}</a>`;
-  }
+  document.getElementById('dropsInfo').textContent = t().dropsMethod;
+  document.getElementById('dropsInfoBtn').setAttribute('aria-label', t().methodLabel);
+  renderLegend();
+  renderMeta();
+  renderFooter();
 }
+
+wireDisclosure(document.getElementById('dropsInfoBtn'), document.getElementById('dropsInfo'));
 
 // --- URL state -------------------------------------------------------------
 // Filters + selected product live in the query string so a link is shareable
@@ -697,15 +1072,21 @@ function applyURLSelection(code) {
   if (!prod) return;
   selectedCode = code;
   selectedSummary = prod;
+  // A shared link can name a product that sorts past the first rendered page.
+  // Grow the page window until its row exists rather than falling back to the
+  // detached panel: the row carries the star, the store dots and the
+  // aria-expanded relationship, and paging is cheap (no chart refetch).
+  // Products outside the current filters aren't in filteredList at all — growTo
+  // can't reach them, so those still land on the standalone-panel path.
+  const i = filteredList.findIndex(p => p.code === code);
+  if (i >= 0) growTo(i + 1);
   openInlineDetail(document.querySelector(`#results .item[data-code="${CSS.escape(code)}"]`), prod);
 }
 
 window.addEventListener('popstate', async () => {
   restoringURL = true;
   const code = readURL();
-  if (state.lang === 'tc' && !NAMES_TC) {
-    try { NAMES_TC = await fetch('./names_tc.json').then(r => r.json()); } catch { NAMES_TC = {}; }
-  }
+  if (state.lang === 'tc') await loadNamesTC();
   renderAll();
   applyURLSelection(code);
   restoringURL = false;
@@ -960,40 +1341,78 @@ async function setLang(lang) {
   localStorage.setItem('opwLang', lang);
   state.cat1 = state.cat2 = state.cat3 = null;
   closeCatMenu();
-  if (lang === 'tc' && !NAMES_TC) {
-    try {
-      NAMES_TC = await fetch('./names_tc.json').then(r => r.json());
-    } catch {
-      NAMES_TC = {};
-    }
-  }
+  SEARCH_HAYSTACK.clear();
+  if (lang === 'tc') await loadNamesTC();
   renderAll();
   syncURL(false);
 }
 
-document.getElementById('langToggle').addEventListener('click', () => {
-  setLang(state.lang === 'tc' ? 'en' : 'tc');
+// Switching to TC pulls a ~554KB names file; without this the toggle just
+// stalls silently. The label is restored in `finally`, so a failed switch
+// can't strand the button in its busy state.
+document.getElementById('langToggle').addEventListener('click', async () => {
+  const btn = document.getElementById('langToggle');
+  const next = state.lang === 'tc' ? 'en' : 'tc';
+  const willFetch = next === 'tc' && !NAMES_TC;
+  if (willFetch) {
+    btn.disabled = true;
+    btn.setAttribute('aria-busy', 'true');
+    btn.setAttribute('aria-label', t().loadingLang);
+    btn.textContent = '⋯';
+  }
+  try {
+    await setLang(next);
+  } finally {
+    btn.disabled = false;
+    btn.removeAttribute('aria-busy');
+    btn.removeAttribute('aria-label');
+    btn.textContent = state.lang === 'tc' ? 'EN' : '繁';
+  }
 });
 
 const initialCode = readURL();
 
-applyLangToPage();
+// Placeholder rows at roughly the real row height, so the 1.1MB index.json
+// fetch doesn't leave an empty page and real rows don't shift the layout.
+const SKELETON_ROW =
+  `<div class="item skel-row" aria-hidden="true"><div class="item-row">` +
+  `<div class="item-main"><span class="thumb skel"></span><div>` +
+  `<div class="skel skel-line skel-name"></div><div class="skel skel-line skel-sub"></div>` +
+  `<div class="skel skel-line skel-tags"></div></div></div>` +
+  `<div class="skel skel-price"></div></div></div>`;
 
-fetch('./index.json').then(r => r.json()).then(async d => {
-  INDEX = d;
-  PRODUCT_BY_CODE = new Map(d.products.map(p => [p.code, p]));
-  if (state.lang === 'tc' && !NAMES_TC) {
-    try {
-      NAMES_TC = await fetch('./names_tc.json').then(r => r.json());
-    } catch {
-      NAMES_TC = {};
-    }
-  }
-  renderAll();
-  applyURLSelection(initialCode);
-}).catch(err => {
-  document.getElementById('meta').textContent = 'Failed to load index.json: ' + err;
-});
+function renderSkeletons() {
+  document.getElementById('results').innerHTML = SKELETON_ROW.repeat(6);
+  document.getElementById('drops').innerHTML = SKELETON_ROW.repeat(4);
+}
+
+function clearSkeletons() {
+  document.getElementById('results').innerHTML = '';
+  document.getElementById('drops').innerHTML = '';
+}
+
+function loadIndex() {
+  indexError = false;
+  renderSkeletons();
+  renderMeta();
+  return fetch('./index.json').then(r => {
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    return r.json();
+  }).then(async d => {
+    INDEX = d;
+    PRODUCT_BY_CODE = new Map(d.products.map(p => [p.code, p]));
+    if (state.lang === 'tc') await loadNamesTC();
+    renderAll();
+    applyURLSelection(initialCode);
+  }).catch(() => {
+    indexError = true;
+    clearSkeletons();
+    renderMeta();
+  });
+}
+
+applyLangToPage();
+loadIndex();
 
 function badgeSpans(badges) {
   return badges.map(b => {
@@ -1008,6 +1427,29 @@ function priceLabel(range) {
   if (!range) return '';
   const [lo, hi] = range;
   return lo === hi ? `$${lo.toFixed(2)}` : `$${lo.toFixed(2)}–$${hi.toFixed(2)}`;
+}
+
+// A row's headline should answer "where do I buy this", not just "what does it
+// cost somewhere" — so lead with the low price AND the chain holding it, and
+// demote the across-chains range to a muted second line (dropped entirely when
+// every chain agrees, since the range would then just restate the headline).
+// p.cheapest is emitted by backfill.py's build_index; a stale local index.json
+// predating that field falls back to the old range-only headline.
+// The unit price is shown on every row it can be parsed for (it used to appear
+// only under the per-unit sort, where it was least surprising and least useful);
+// an unparseable size renders nothing rather than a placeholder.
+function priceCellHTML(p) {
+  const range = p.latest_price_range;
+  const cheapest = p.cheapest;
+  const lead = cheapest
+    ? t().cheapestAt(`$${cheapest[1].toFixed(2)}`, storeLabel(cheapest[0]))
+    : priceLabel(range);
+  const spread = cheapest && range && range[0] !== range[1];
+  const up = unitPriceOf(p);
+  return `<div class="item-price"><div>${lead}${starHTML(p.code)}</div>` +
+    (spread ? `<div class="item-range">${priceLabel(range)}</div>` : '') +
+    (up ? `<div class="item-unit">$${up.value.toFixed(1)}/${up.unit}</div>` : '') +
+    `</div>`;
 }
 
 function makeChip(html, count, active) {
@@ -1026,12 +1468,16 @@ function storeBtnText() {
 }
 
 function renderStoreBtn() {
+  const filtered = state.stores.size !== STORE_ORDER.length;
   document.getElementById('storeBtnText').textContent = storeBtnText();
-  document.getElementById('storeBtn').classList.toggle('active', state.stores.size !== STORE_ORDER.length);
+  document.getElementById('storeBtn').classList.toggle('active', filtered);
+  document.getElementById('storeClear').hidden = !filtered;
 }
 
 function renderStoreMenu() {
   const menu = document.getElementById('storeMenu');
+  // toggling a store rebuilds every row, which would drop keyboard focus
+  const focusIdx = [...menu.querySelectorAll('.cat-row')].indexOf(document.activeElement);
   menu.innerHTML = '';
   const allOn = state.stores.size === STORE_ORDER.length;
   const allRow = document.createElement('div');
@@ -1040,7 +1486,7 @@ function renderStoreMenu() {
   setRowActivation(allRow, () => {
     if (allOn) state.stores.clear(); else STORE_ORDER.forEach(s => state.stores.add(s));
     afterStoreChange();
-  });
+  }, allOn);
   menu.appendChild(allRow);
   for (const sm of STORE_ORDER) {
     const on = state.stores.has(sm);
@@ -1048,9 +1494,10 @@ function renderStoreMenu() {
     row.className = 'cat-row';
     row.innerHTML = `<span><span class="store-dot" style="background:${storeColor(sm)}"></span>${storeLabel(sm)}</span>` +
       `<input type="checkbox" ${on ? 'checked' : ''} tabindex="-1" aria-hidden="true">`;
-    setRowActivation(row, () => toggleStore(sm));
+    setRowActivation(row, () => toggleStore(sm), on);
     menu.appendChild(row);
   }
+  if (focusIdx >= 0) menu.querySelectorAll('.cat-row')[focusIdx]?.focus();
 }
 
 function afterStoreChange() {
@@ -1068,18 +1515,25 @@ function toggleStore(sm) {
 let storeMenuOpen = false;
 function openStoreMenu() {
   renderStoreMenu();
-  document.getElementById('storeMenu').hidden = false;
+  const menu = document.getElementById('storeMenu');
+  menu.hidden = false;
   document.getElementById('storeBtn').setAttribute('aria-expanded', 'true');
   storeMenuOpen = true;
+  wireMenuKeys(menu);
+  focusFirstRow(menu);
 }
 function closeStoreMenu() {
-  document.getElementById('storeMenu').hidden = true;
-  document.getElementById('storeBtn').setAttribute('aria-expanded', 'false');
   storeMenuOpen = false;
+  closeMenuEl(document.getElementById('storeMenu'), document.getElementById('storeBtn'));
 }
 document.getElementById('storeBtn').addEventListener('click', e => {
   e.stopPropagation();
   storeMenuOpen ? closeStoreMenu() : openStoreMenu();
+});
+document.getElementById('storeClear').addEventListener('click', e => {
+  e.stopPropagation();
+  state.stores = new Set(STORE_ORDER);
+  afterStoreChange();
 });
 document.addEventListener('click', e => {
   if (storeMenuOpen && !e.composedPath().includes(document.querySelector('.store-picker'))) closeStoreMenu();
@@ -1117,14 +1571,101 @@ function matchesCat(p) {
   return true;
 }
 
-// Search always matches EN + TC name/brand, regardless of active language.
+// --- Search ----------------------------------------------------------------
+// Token-based, so "mozzarella cheese" finds "Mozzarella Shredded Cheese".
+// Every token must match (strict AND); tokens are ranked prefix > substring >
+// one-typo so better matches float to the top of the list.
+
+// Lowercased EN+TC name/brand per product, so search keeps working in both
+// languages regardless of the active UI language.
+// ponytail: coupled to NAMES_TC — the TC half only exists once names_tc.json
+// has landed, so loadNamesTC() and setLang() both clear this Map. Any future
+// writer of NAMES_TC must clear it too.
+const SEARCH_HAYSTACK = new Map();
+
+function searchHaystack(p) {
+  let hay = SEARCH_HAYSTACK.get(p.code);
+  if (hay === undefined) {
+    const tc = tcOf(p.code);
+    hay = [p.name, p.brand, tc?.name, tc?.brand].filter(Boolean).join(' ').toLowerCase();
+    SEARCH_HAYSTACK.set(p.code, hay);
+  }
+  return hay;
+}
+
+// ponytail: only "distance <= 1" is ever asked, so this is the linear
+// two-pointer special case of Levenshtein, not the full matrix — it runs over
+// thousands of products per keystroke. Widen to a real (banded) matrix only if
+// distance 2 tolerance is ever wanted.
+function withinOneEdit(a, b) {
+  const la = a.length, lb = b.length;
+  if (Math.abs(la - lb) > 1) return false;
+  let i = 0, j = 0, edits = 0;
+  while (i < la && j < lb) {
+    if (a[i] === b[j]) { i++; j++; continue; }
+    if (++edits > 1) return false;
+    if (la === lb) { i++; j++; }  // substitution
+    else if (la > lb) i++;        // extra char in a
+    else j++;                     // missing char in a
+  }
+  return edits + (la - i) + (lb - j) <= 1;
+}
+
+const NO_SEARCH_MATCH = -Infinity;
+const TIER_PREFIX = 3, TIER_SUBSTRING = 2, TIER_TYPO = 1, TIER_NONE = 0;
+const FUZZY_MIN_LEN = 4; // below this, one edit is too much of the token to be a typo
+const PHRASE_BONUS = 10; // per token, so a verbatim phrase hit always outranks scattered tokens
+
+const searchTokens = q => q.split(/\s+/).filter(Boolean);
+
+function tokenTier(token, hay, words) {
+  if (words.some(w => w.startsWith(token))) return TIER_PREFIX;
+  if (hay.includes(token)) return TIER_SUBSTRING;
+  if (token.length >= FUZZY_MIN_LEN && words.some(w => withinOneEdit(w, token))) return TIER_TYPO;
+  return TIER_NONE;
+}
+
+// Ranks p against state.query. Returns NO_SEARCH_MATCH when any token misses,
+// 0 when the query is empty (everything ties, so the chosen sort decides).
+function searchScore(p) {
+  if (!p) return NO_SEARCH_MATCH;
+  const q = state.query;
+  const tokens = searchTokens(q);
+  if (!tokens.length) return 0;
+  const hay = searchHaystack(p);
+  const words = hay.split(/\s+/);
+  let score = 0;
+  for (const token of tokens) {
+    const tier = tokenTier(token, hay, words);
+    if (tier === TIER_NONE) return NO_SEARCH_MATCH;
+    score += tier;
+  }
+  if (hay.includes(q)) score += PHRASE_BONUS * tokens.length;
+  return score;
+}
+
 // Shared by the products list and the drops panel.
 function matchesSearch(p) {
-  if (!p) return false;
-  const q = state.query;
-  if (p.name.toLowerCase().includes(q) || p.brand.toLowerCase().includes(q)) return true;
-  const tc = tcOf(p.code);
-  return !!tc && ((tc.name || '').toLowerCase().includes(q) || (tc.brand || '').toLowerCase().includes(q));
+  return searchScore(p) !== NO_SEARCH_MATCH;
+}
+
+// Manual check for the matcher — call __searchSelfCheck() from the browser
+// console. Deliberately never called in production.
+function __searchSelfCheck() {
+  const prevQuery = state.query;
+  const scattered = { code: '__sc1', name: 'Mozzarella Shredded Cheese', brand: 'Anchor' };
+  const phrase = { code: '__sc2', name: 'Mozzarella Cheese Block', brand: 'Anchor' };
+  const tea = { code: '__sc3', name: 'Green Tea Bags', brand: 'Lipton' };
+  const score = (p, q) => { state.query = q; return searchScore(p); };
+  console.assert(score(scattered, 'mozzarella cheese') > NO_SEARCH_MATCH, 'tokens may be non-contiguous');
+  console.assert(score(scattered, 'mozarella') > NO_SEARCH_MATCH, 'one-typo token still matches');
+  console.assert(score(scattered, 'mozzarella biscuit') === NO_SEARCH_MATCH, 'every token must match');
+  console.assert(
+    score(phrase, 'mozzarella cheese') > score(scattered, 'mozzarella cheese'),
+    'verbatim phrase outranks scattered tokens');
+  console.assert(score(tea, 'taa') === NO_SEARCH_MATCH, 'no typo tolerance below 4 chars');
+  state.query = prevQuery;
+  ['__sc1', '__sc2', '__sc3'].forEach(c => SEARCH_HAYSTACK.delete(c));
 }
 
 function currentCatPath() {
@@ -1151,13 +1692,48 @@ function applyCatPath(path) {
 
 // Mirrors the .star keydown pattern: menu rows are click-only divs, so
 // Enter/Space need an explicit activation handler for keyboard use.
-function setRowActivation(el, onActivate) {
-  el.setAttribute('role', 'menuitem');
+// Pass `checked` (true/false) for a toggle row: the rendered <input type=checkbox>
+// is decorative (aria-hidden), so the state has to live on the row itself.
+function setRowActivation(el, onActivate, checked) {
+  el.setAttribute('role', checked === undefined ? 'menuitem' : 'menuitemcheckbox');
+  if (checked !== undefined) el.setAttribute('aria-checked', String(checked));
   el.tabIndex = 0;
   el.onclick = onActivate;
   el.onkeydown = e => {
     if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onActivate(); }
   };
+}
+
+// Rows are divs, so roving focus is manual. Escape is deliberately NOT here —
+// one global Escape handler (below) already closes whichever menu is open and
+// now restores focus to its trigger, so duplicating it per menu would just
+// give two code paths for the same key.
+function wireMenuKeys(menu) {
+  menu.onkeydown = e => {
+    const keys = { ArrowDown: 1, ArrowUp: -1, Home: 0, End: 0 };
+    if (!(e.key in keys)) return;
+    const rows = [...menu.querySelectorAll('.cat-row')];
+    if (!rows.length) return;
+    e.preventDefault();
+    if (e.key === 'Home') { rows[0].focus(); return; }
+    if (e.key === 'End') { rows[rows.length - 1].focus(); return; }
+    const i = Math.max(0, rows.indexOf(document.activeElement));
+    rows[(i + keys[e.key] + rows.length) % rows.length].focus();
+  };
+}
+
+const focusFirstRow = menu => menu.querySelector('.cat-row')?.focus();
+
+// Opening a menu moves focus into it, so every close path (Escape, picking a
+// row, clicking away) must hand focus back to the trigger — but only while
+// focus is still inside the menu, so an outside click that already focused
+// something else isn't hijacked. Must be read before the menu is hidden:
+// hiding it blurs the focused row.
+function closeMenuEl(menu, btn) {
+  const hadFocus = menu.contains(document.activeElement);
+  menu.hidden = true;
+  btn.setAttribute('aria-expanded', 'false');
+  if (hadFocus) btn.focus();
 }
 
 function renderCatMenu() {
@@ -1210,21 +1786,25 @@ function renderCatMenu() {
     row.appendChild(right);
     menu.appendChild(row);
   }
+  // drilling in/out replaces every row, so keyboard focus has to be re-seated
+  if (catMenuOpen) focusFirstRow(menu);
 }
 
 function openCatMenu() {
   const path = currentCatPath();
   menuPath = path.slice(0, Math.max(0, path.length - 1));
   renderCatMenu();
-  document.getElementById('catMenu').hidden = false;
+  const menu = document.getElementById('catMenu');
+  menu.hidden = false;
   document.getElementById('catBtn').setAttribute('aria-expanded', 'true');
   catMenuOpen = true;
+  wireMenuKeys(menu);
+  focusFirstRow(menu);
 }
 
 function closeCatMenu() {
-  document.getElementById('catMenu').hidden = true;
-  document.getElementById('catBtn').setAttribute('aria-expanded', 'false');
   catMenuOpen = false;
+  closeMenuEl(document.getElementById('catMenu'), document.getElementById('catBtn'));
 }
 
 document.getElementById('catClear').addEventListener('click', e => {
@@ -1243,16 +1823,32 @@ document.addEventListener('click', e => {
 
 document.addEventListener('keydown', e => {
   if (e.key !== 'Escape') return;
+  // both close paths hand focus back to their trigger (see closeMenuEl)
   if (catMenuOpen) closeCatMenu();
   if (storeMenuOpen) closeStoreMenu();
   if (!document.getElementById('authModal').hidden) closeAuthModal();
 });
 
+// The input's own value stays instant; only the expensive part (re-filtering
+// thousands of products and rebuilding hundreds of rows) waits for a pause.
+let searchTimer = null;
 document.getElementById('search').addEventListener('input', e => {
-  state.query = e.target.value.trim().toLowerCase();
-  applyFilters();
-  renderDrops();
+  const q = e.target.value.trim().toLowerCase();
+  clearTimeout(searchTimer);
+  searchTimer = setTimeout(() => {
+    state.query = q;
+    applyFilters();
+    renderDrops();
+  }, 150);
 });
+
+// .filter-bar is sticky right under the header, whose height changes with
+// body.auth-on and with iOS Dynamic Type — so publish the measured height
+// instead of hardcoding an offset in CSS.
+const headerEl = document.querySelector('.app-header');
+new ResizeObserver(() => {
+  document.documentElement.style.setProperty('--header-h', `${headerEl.offsetHeight}px`);
+}).observe(headerEl);
 
 // ponytail: back-of-envelope unit-price parser, one regex pass over the
 // product name. Handles "330mL", "1.5L", "500g", "1kg", "565 GM",
@@ -1285,24 +1881,33 @@ function unitPriceOf(p) {
   return price == null ? null : parseUnitPrice(nameOf(p), price);
 }
 
-function sortProducts(list) {
+function sortComparator() {
   if (state.sort === 'price_asc') {
-    return [...list].sort((a, b) => (a.latest_price_range?.[0] ?? Infinity) - (b.latest_price_range?.[0] ?? Infinity));
+    return (a, b) => (a.latest_price_range?.[0] ?? Infinity) - (b.latest_price_range?.[0] ?? Infinity);
   }
   if (state.sort === 'unit_asc') {
     // Group by unit basis first (volume, then weight, then piece, then
     // unparseable last) — comparing raw $/100ml vs $/100g vs $/piece numbers
     // is meaningless since they're different quantities.
     const unitOrder = { '100ml': 0, '100g': 1, piece: 2 };
-    return [...list].sort((a, b) => {
+    return (a, b) => {
       const ua = unitPriceOf(a), ub = unitPriceOf(b);
       const oa = ua ? unitOrder[ua.unit] : 3;
       const ob = ub ? unitOrder[ub.unit] : 3;
       if (oa !== ob) return oa - ob;
       return oa === 3 ? 0 : ua.value - ub.value;
-    });
+    };
   }
-  return [...list].sort((a, b) => b.stores.length - a.stores.length); // stores_desc (default)
+  return (a, b) => b.stores.length - a.stores.length; // stores_desc (default)
+}
+
+// With a query, relevance leads and the chosen sort only breaks ties; with an
+// empty query the three sort modes are the whole ordering, exactly as before.
+function sortProducts(list) {
+  const cmp = sortComparator();
+  if (!state.query) return [...list].sort(cmp);
+  const scores = new Map(list.map(p => [p.code, searchScore(p)]));
+  return [...list].sort((a, b) => (scores.get(b.code) - scores.get(a.code)) || cmp(a, b));
 }
 
 function renderSortOptions() {
@@ -1319,6 +1924,44 @@ document.getElementById('sortSelect').addEventListener('change', e => {
   applyFilters();
 });
 
+// ponytail: pagination, not virtualization. Clicking through to several
+// thousand rows still leaves that many nodes in the DOM — the win here is that
+// a filter/search/sort change only ever builds PAGE_SIZE of them, which is the
+// path that runs on every keystroke. Swap in a windowed renderer only if
+// profiling shows the accumulated node count actually hurts.
+const PAGE_SIZE = 50;
+// full filtered+sorted list; the first `renderCount` of it are in the DOM.
+let filteredList = [];
+let renderCount = 0;
+
+function renderCountLine() {
+  document.getElementById('resultCount').textContent =
+    t().showing(renderCount.toLocaleString(), filteredList.length.toLocaleString());
+}
+
+function renderShowMore() {
+  const wrap = document.getElementById('showMoreWrap');
+  const remaining = filteredList.length - renderCount;
+  if (remaining <= 0) { wrap.innerHTML = ''; return; }
+  const next = Math.min(PAGE_SIZE, remaining);
+  wrap.innerHTML = `<button type="button" class="chip" id="showMoreBtn">` +
+    `${t().showMore(next.toLocaleString(), remaining.toLocaleString())}</button>`;
+  document.getElementById('showMoreBtn').onclick = () => growTo(renderCount + PAGE_SIZE);
+}
+
+// Appends rows up to `target` in place. Existing rows — and any open inline
+// detail sitting between them — are left untouched, so paging never costs a
+// chart refetch.
+function growTo(target) {
+  const want = Math.min(target, filteredList.length);
+  if (want <= renderCount) return;
+  const el = document.getElementById('results');
+  for (const p of filteredList.slice(renderCount, want)) el.appendChild(itemRow(p));
+  renderCount = want;
+  renderCountLine();
+  renderShowMore();
+}
+
 function applyFilters() {
   if (!INDEX) return;
   let list = INDEX.products.filter(matchesCat);
@@ -1327,23 +1970,28 @@ function applyFilters() {
     list = list.filter(p => watchlist.has(p.code));
   }
   if (state.query) list = list.filter(matchesSearch);
-  list = sortProducts(list);
-  const shown = Math.min(list.length, 200);
-  document.getElementById('resultCount').textContent = t().showing(shown, list.length);
-  const shownList = list.slice(0, 200);
-  renderResults(shownList);
-  if (state.trackerOnly && !list.length) {
-    document.getElementById('results').innerHTML = `<div class="item-sub">${t().noTracked}</div>`;
+  filteredList = sortProducts(list);
+  // every filter/search/sort/tracker change routes through here, so this is
+  // also where the page window resets to the first page.
+  renderCount = Math.min(PAGE_SIZE, filteredList.length);
+  // ...except when a product is open: a selection that re-sorted past the first
+  // page would otherwise be silently closed by the reopen check below.
+  if (selectedCode) {
+    const i = filteredList.findIndex(p => p.code === selectedCode);
+    if (i >= renderCount) renderCount = i + 1;
   }
+  renderResults(filteredList.slice(0, renderCount));
+  renderCountLine();
+  renderShowMore();
+  if (!filteredList.length) renderEmptyState();
   // renderResults above rebuilds #results from scratch, which wipes any inline
   // detail region — reopen it (refetches + re-renders the chart, ponytail:
   // known cost, debounce if rapid filter changes while a chart is open ever
   // shows up in profiling) if selectedCode is still visible, else drop the selection.
   if (selectedCode) {
-    if (shownList.some(p => p.code === selectedCode)) {
-      const row = document.querySelector(`#results .item[data-code="${CSS.escape(selectedCode)}"]`);
-      if (row) openInlineDetail(row, selectedSummary);
-    } else {
+    const row = document.querySelector(`#results .item[data-code="${CSS.escape(selectedCode)}"]`);
+    if (row) openInlineDetail(row, selectedSummary);
+    else {
       selectedCode = null;
       selectedSummary = null;
     }
@@ -1351,48 +1999,81 @@ function applyFilters() {
   syncURL(false);
 }
 
+// Zero results used to be a dead end (a bare line of text), so the empty state
+// carries the one action that always gets the user out.
+function renderEmptyState() {
+  const el = document.getElementById('results');
+  el.innerHTML = `<div class="empty-state">` +
+    `<div class="item-sub">${state.trackerOnly ? t().noTracked : t().noneMatch}</div>` +
+    `<button type="button" class="chip" id="clearFiltersBtn">${t().clearFilters}</button></div>`;
+  document.getElementById('clearFiltersBtn').onclick = clearAllFilters;
+}
+
+// Resets every filter, tracker mode included — leaving tracker mode on would
+// keep the list empty for a user who just asked for "everything".
+function clearAllFilters() {
+  clearTimeout(searchTimer); // a queued keystroke would otherwise restore the query
+  state.query = '';
+  state.cat1 = state.cat2 = state.cat3 = null;
+  state.stores = new Set(STORE_ORDER);
+  state.trackerOnly = false;
+  document.getElementById('search').value = '';
+  renderCatBtn();
+  renderStoreBtn();
+  renderTrackerChip();
+  applyFilters();
+  renderDrops();
+}
+
+// id of the single open detail region — rows point at it via aria-controls, so
+// a screen reader can follow the accordion relationship both ways.
+const DETAIL_ID = 'itemDetail';
+
+function itemRow(p) {
+  // Row is a div (not <button>) because it contains a nested star toggle —
+  // a <button> cannot contain other interactive/tabindex descendants.
+  const btn = document.createElement('div');
+  btn.setAttribute('role', 'button');
+  // openInlineDetail is the only writer of "true"; every fresh row starts closed.
+  btn.setAttribute('aria-expanded', 'false');
+  btn.tabIndex = 0;
+  btn.className = 'item' + (p.code === selectedCode ? ' selected' : '');
+  btn.dataset.code = p.code;
+  btn.innerHTML =
+    `<div class="item-row"><div class="item-main">${thumbHTML(p.code)}<div><div class="item-name">${nameOf(p)}</div>` +
+    `<div class="item-sub">${brandOf(p)} &middot; ${catLabel(catOf(p))}</div></div></div>` +
+    priceCellHTML(p) +
+    `<span class="item-arrow" aria-hidden="true">&rsaquo;</span></div>` +
+    `<div class="stores-row">${STORE_ORDER.filter(s => p.stores.includes(s)).map(storeTag).join('')}</div>` +
+    `<div class="badges">${badgeSpans(p.badges)}</div>`;
+  btn.onclick = () => selectProduct(p, btn);
+  btn.onkeydown = e => {
+    if (e.target !== btn) return; // let the nested star handle its own Enter/Space
+    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); selectProduct(p, btn); }
+  };
+  return btn;
+}
+
 function renderResults(products) {
   const el = document.getElementById('results');
   el.innerHTML = '';
-  for (const p of products) {
-    const up = state.sort === 'unit_asc' ? unitPriceOf(p) : null;
-    const unitLine = state.sort === 'unit_asc'
-      ? `<div class="item-unit">${up ? `$${up.value.toFixed(1)}/${up.unit}` : ''}</div>` : '';
-    // Row is a div (not <button>) because it contains a nested star toggle —
-    // a <button> cannot contain other interactive/tabindex descendants.
-    const btn = document.createElement('div');
-    btn.setAttribute('role', 'button');
-    btn.tabIndex = 0;
-    btn.className = 'item' + (p.code === selectedCode ? ' selected' : '');
-    btn.dataset.code = p.code;
-    btn.innerHTML =
-      `<div class="item-row"><div class="item-main">${thumbHTML(p.code)}<div><div class="item-name">${nameOf(p)}</div>` +
-      `<div class="item-sub">${brandOf(p)} &middot; ${catLabel(catOf(p))}</div></div></div>` +
-      `<div class="item-price">${priceLabel(p.latest_price_range)}${starHTML(p.code)}${unitLine}</div>` +
-      `<span class="item-arrow" aria-hidden="true">&rsaquo;</span></div>` +
-      `<div class="stores-row">${STORE_ORDER.filter(s => p.stores.includes(s)).map(storeTag).join('')}</div>` +
-      `<div class="badges">${badgeSpans(p.badges)}</div>`;
-    btn.onclick = () => selectProduct(p, btn);
-    btn.onkeydown = e => {
-      if (e.target !== btn) return; // let the nested star handle its own Enter/Space
-      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); selectProduct(p, btn); }
-    };
-    el.appendChild(btn);
-  }
-  // ~15-row scroll cap, lifted while an inline detail/chart is open (below).
-  el.classList.toggle('capped', !selectedCode);
+  for (const p of products) el.appendChild(itemRow(p));
 }
 
 // Inserts the accordion detail region right after rowEl (or, if rowEl is
-// null — e.g. a drops-list click whose product fell outside the 200-row cap
-// / current filters — at the top of #results as a standalone panel).
+// null — e.g. a drops-list click whose product falls outside the current
+// filters — at the top of #results as a standalone panel).
 function openInlineDetail(rowEl, summary) {
-  document.getElementById('results').classList.remove('capped');
   const wrap = document.createElement('div');
   wrap.className = 'item-detail';
+  wrap.id = DETAIL_ID;
+  wrap.setAttribute('role', 'region');
+  wrap.setAttribute('aria-label', nameOf(summary));
   wrap.innerHTML = '<div class="detail" id="detail"></div>';
   if (rowEl) {
     rowEl.classList.add('selected');
+    rowEl.setAttribute('aria-expanded', 'true');
+    rowEl.setAttribute('aria-controls', DETAIL_ID);
     rowEl.after(wrap);
   } else {
     // ponytail: standalone fallback rather than also clearing filters to reveal the row.
@@ -1403,9 +2084,12 @@ function openInlineDetail(rowEl, summary) {
 }
 
 function removeInlineDetail() {
-  document.querySelector('.item-detail')?.remove();
+  document.getElementById(DETAIL_ID)?.remove();
   document.querySelectorAll('.item.selected').forEach(x => x.classList.remove('selected'));
-  document.getElementById('results').classList.add('capped');
+  document.querySelectorAll('#results .item[aria-expanded="true"]').forEach(x => {
+    x.setAttribute('aria-expanded', 'false');
+    x.removeAttribute('aria-controls');
+  });
 }
 
 function selectProduct(p, rowEl) {
@@ -1419,6 +2103,12 @@ function selectProduct(p, rowEl) {
   removeInlineDetail(); // only one open at a time
   selectedCode = p.code;
   selectedSummary = p;
+  // rowEl is null for drops-panel clicks — same deal as applyURLSelection: page
+  // the list out far enough to expose the real row when the product is in it.
+  if (!rowEl) {
+    const i = filteredList.findIndex(x => x.code === p.code);
+    if (i >= 0) growTo(i + 1);
+  }
   const target = rowEl || document.querySelector(`#results .item[data-code="${CSS.escape(p.code)}"]`);
   const wrap = openInlineDetail(target, p);
   if (window.innerWidth < 880) wrap.scrollIntoView({ behavior: 'smooth' });
@@ -1517,11 +2207,87 @@ function loadChartLib() {
 
 let chart = null;
 
+// The panel is written twice — placeholder, then the real thing once the
+// product JSON lands — so the placeholder repeats the loaded panel's block
+// order (callout, range chips, chart, legend, table) at the same heights.
+// .chart-wrap in particular carries its breakpoint height here too, which is
+// what stops the chart mounting from shoving the table down on mobile.
+function detailSkeletonHTML() {
+  const chip = '<div class="skel skel-chip"></div>';
+  const head = '<th><div class="skel skel-line skel-th"></div></th>';
+  const cell = '<td><div class="skel skel-line skel-cell"></div></td>';
+  return `<p class="sr-only">${t().loading}</p>` +
+    `<div aria-hidden="true">` +
+    `<div class="skel skel-callout"></div>` +
+    `<div class="chips range-chips">${chip.repeat(4)}</div>` +
+    `<div class="chart-wrap"><div class="skel skel-chart"></div></div>` +
+    `<div class="chips series-toggles">${chip.repeat(3)}</div>` +
+    `<div class="table-wrap"><table><thead><tr>${head.repeat(5)}</tr></thead><tbody>` +
+    `<tr>${cell.repeat(5)}</tr>`.repeat(4) +
+    `</tbody></table></div></div>`;
+}
+
+// A canvas is opaque to a screen reader, so the chart container carries a
+// one-sentence stand-in. "Current" means each chain's last point, which is the
+// same number the table's Latest column shows.
+function chartSummaryFacts(entries) {
+  const latest = entries.map(([, series]) => series[series.length - 1][1]);
+  const dates = entries.flatMap(([, series]) => series.map(pt => pt[0])).sort();
+  return {
+    stores: entries.length,
+    start: dates[0], end: dates[dates.length - 1],
+    low: Math.min(...latest), high: Math.max(...latest),
+  };
+}
+
+function chartSummaryText(entries) {
+  if (!entries.length) return '';
+  const f = chartSummaryFacts(entries);
+  return t().chartSummary(f.stores, f.start, f.end, f.low.toFixed(2), f.high.toFixed(2));
+}
+
+// chartRange is global and outlives the product, so a range longer than this
+// product's history would silently render blank space. Disable those chips,
+// fall back to All for the view, and say why. spanDays === null (nothing
+// plotted) leaves every chip alone — there is nothing to explain.
+function rangeChipState(spanDays, selected) {
+  const enabled = key => spanDays == null || RANGES[key] == null || RANGES[key] <= spanDays;
+  return {
+    enabled,
+    active: enabled(selected) ? selected : 'All',
+    note: enabled(selected) ? null : Math.max(1, Math.round(spanDays / 30)),
+  };
+}
+
+// ponytail: three sortable columns, two of them numeric — no generic sort
+// framework. Chain sorts on the translated label so TC orders the way it reads.
+function tableComparator(key, dir) {
+  const mul = dir === 'asc' ? 1 : -1;
+  return (a, b) => mul * (key === 'chain' ? a.label.localeCompare(b.label) : a[key] - b[key]);
+}
+
+// Offer and the badge column are deliberately absent: neither has a meaningful
+// order, so neither gets a button or aria-sort.
+const SORT_COLS = [
+  { key: 'chain', label: () => t().thChain, cls: '' },
+  { key: 'latest', label: () => t().thLatest, cls: 'num' },
+  { key: 'median', label: () => t().thMedian, cls: 'num' },
+];
+
+function sortableHeader(col, sort) {
+  const on = sort.key === col.key;
+  const ariaSort = on ? (sort.dir === 'asc' ? 'ascending' : 'descending') : 'none';
+  const arrow = on ? (sort.dir === 'asc' ? '&#9650;' : '&#9660;') : '';
+  return `<th${col.cls ? ` class="${col.cls}"` : ''} aria-sort="${ariaSort}">` +
+    `<button type="button" class="th-sort" data-key="${col.key}">${col.label()}` +
+    `<span aria-hidden="true">${arrow}</span></button></th>`;
+}
+
 async function renderDetail(summary) {
   const el = document.getElementById('detail');
   el.innerHTML = `<div class="detail-head">${thumbHTML(summary.code, 'thumb-detail')}<div><h2>${nameOf(summary)}</h2>` +
     `<p class="sub-line">${brandOf(summary)} &middot; ${catLabel(catOf(summary))}</p></div></div>` +
-    `<div class="detail-loading">${t().loading}</div>`;
+    detailSkeletonHTML();
 
   const libReady = loadChartLib();
 
@@ -1535,15 +2301,6 @@ async function renderDetail(summary) {
     el.innerHTML += `<div class="detail-error">${t().loadFailed(err)}</div>`;
     return;
   }
-
-  el.innerHTML = `<div class="detail-head">${thumbHTML(p.code, 'thumb-detail')}<div><h2>${nameOf(p)}${starHTML(p.code)}</h2>` +
-    `<p class="sub-line">${brandOf(p)} &middot; ${catLabel(catOf(p))}</p></div></div>` +
-    `<div id="savingsCallout"></div>` +
-    `<div class="chips range-chips" id="rangeChips"></div>` +
-    `<div class="chart-wrap"><canvas id="chart"></canvas></div>` +
-    `<div id="sightingsSection"></div>` +
-    `<div class="table-wrap"><table id="latestTable"></table></div>`;
-  document.title = `${nameOf(p)} — ${t().h1}`;
 
   // Series are sparse (a point only when price/promo changed). Extend each
   // store's line to the product's last confirmed-seen date with a flat
@@ -1559,41 +2316,97 @@ async function renderDetail(summary) {
     }
     return {
       label: storeLabel(sm), data: points, stepped: true,
-      borderColor: storeColor(sm), fill: false,
+      borderColor: storeColor(sm), borderDash: storeDash(sm), fill: false,
       borderWidth: 2, pointRadius: 0, pointHoverRadius: 4, pointHitRadius: 12,
       pointHoverBackgroundColor: storeColor(sm),
     };
   });
 
+  // empty only when every chain is filtered out — an aria-label="" would leave
+  // a role=img with no name, so the role goes too
+  const chartSummary = chartSummaryText(seriesEntries);
+  el.innerHTML = `<div class="detail-head">${thumbHTML(p.code, 'thumb-detail')}<div><h2>${nameOf(p)}${starHTML(p.code)}</h2>` +
+    `<p class="sub-line">${brandOf(p)} &middot; ${catLabel(catOf(p))}</p></div></div>` +
+    `<div id="savingsCallout"></div>` +
+    `<div class="chips range-chips" id="rangeChips"></div>` +
+    `<p class="range-note" id="rangeNote" hidden></p>` +
+    `<div class="chart-wrap" id="chartWrap"` +
+    (chartSummary ? ` role="img" aria-label="${escapeHtml(chartSummary)}"` : '') + `>` +
+    `<canvas id="chart"></canvas></div>` +
+    `<div class="chips series-toggles" id="seriesToggles" role="group" aria-label="${t().seriesToggles}"></div>` +
+    `<div id="sightingsSection"></div>` +
+    `<div class="table-wrap"><table id="latestTable"></table></div>`;
+  document.title = `${nameOf(p)} — ${t().h1}`;
+
+  // How much history this product actually has, in days — drives which range
+  // chips are offered (see rangeChipState).
+  const xs = datasets.flatMap(d => d.data.map(pt => pt.x));
+  const spanDays = xs.length ? (Math.max(...xs) - Math.min(...xs)) / 864e5 : null;
+  const chipState = () => rangeChipState(spanDays, chartRange);
+
   function rangeWindow() {
-    const days = RANGES[chartRange];
+    const days = RANGES[chipState().active];
     if (days == null) return { min: undefined, max: undefined };
     const lastX = Math.max(...datasets.flatMap(d => d.data.map(pt => pt.x)));
     return { min: lastX - days * 864e5, max: lastX };
   }
 
   function renderRangeChips() {
-    const el = document.getElementById('rangeChips');
-    el.innerHTML = '';
+    const st = chipState();
+    const box = document.getElementById('rangeChips');
+    box.innerHTML = '';
     for (const key of Object.keys(RANGES)) {
-      const chip = makeChip(t().rangeLabels[key], null, key === chartRange);
-      chip.onclick = () => {
-        chartRange = key;
-        const { min, max } = rangeWindow();
-        chart.options.scales.x.min = min;
-        chart.options.scales.x.max = max;
-        chart.update();
-        renderRangeChips();
-      };
-      el.appendChild(chip);
+      const chip = makeChip(t().rangeLabels[key], null, key === st.active);
+      if (st.enabled(key)) {
+        chip.onclick = () => {
+          chartRange = key;
+          const { min, max } = rangeWindow();
+          chart.options.scales.x.min = min;
+          chart.options.scales.x.max = max;
+          chart.update();
+          renderRangeChips();
+        };
+      } else {
+        chip.disabled = true;
+        chip.setAttribute('aria-disabled', 'true');
+      }
+      box.appendChild(chip);
     }
+    const note = document.getElementById('rangeNote');
+    note.textContent = st.note == null ? '' : t().historyNote(st.note);
+    note.hidden = st.note == null;
   }
+
+  // Toggle state is per-view: this rebuilds every time a product opens, so the
+  // buttons always start pressed (visible) and nothing is persisted.
+  function renderSeriesToggles() {
+    const box = document.getElementById('seriesToggles');
+    box.innerHTML = '';
+    seriesEntries.forEach(([sm], i) => {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'chip series-toggle';
+      btn.setAttribute('aria-pressed', String(chart.isDatasetVisible(i)));
+      btn.innerHTML = `<span class="series-swatch" style="${storeSwatchStyle(sm)}" aria-hidden="true"></span>${storeLabel(sm)}`;
+      btn.onclick = () => {
+        chart.setDatasetVisibility(i, !chart.isDatasetVisible(i));
+        chart.update();
+        btn.setAttribute('aria-pressed', String(chart.isDatasetVisible(i)));
+      };
+      box.appendChild(btn);
+    });
+  }
+
   let chartLibOk = true;
   try {
     await libReady;
   } catch (err) {
     chartLibOk = false;
-    document.querySelector('.chart-wrap').innerHTML = `<div class="detail-error">${t().loadFailed(err.message)}</div>`;
+    const wrap = document.getElementById('chartWrap');
+    // the summary describes a chart that isn't there any more
+    wrap.removeAttribute('role');
+    wrap.removeAttribute('aria-label');
+    wrap.innerHTML = `<div class="detail-error">${t().loadFailed(err.message)}</div>`;
   }
 
   if (chartLibOk) {
@@ -1609,6 +2422,10 @@ async function renderDetail(summary) {
       options: {
         parsing: false,
         maintainAspectRatio: false,
+        // the stylesheet already honours prefers-reduced-motion; Chart.js
+        // animates on its own, so it needs telling separately. Data is drawn
+        // in its final position immediately either way.
+        animation: reduceMotion() ? false : undefined,
         interaction: { mode: 'index', intersect: false },
         scales: {
           x: {
@@ -1624,10 +2441,9 @@ async function renderDetail(summary) {
           },
         },
         plugins: {
-          legend: {
-            position: 'bottom',
-            labels: { usePointStyle: true, pointStyle: 'line', color: cssVar('--fg'), padding: 16 },
-          },
+          // off, not styled: #seriesToggles below the canvas is the legend now,
+          // and two legends showing the same nine chains would just compete.
+          legend: { display: false },
           tooltip: {
             backgroundColor: cssVar('--card-bg'), borderColor: cssVar('--border'), borderWidth: 1,
             titleColor: cssVar('--fg'), bodyColor: cssVar('--fg'), padding: 10, cornerRadius: 8,
@@ -1642,19 +2458,48 @@ async function renderDetail(summary) {
         },
       },
     });
+
+    // the toggles read chart.isDatasetVisible, so they only exist with a chart
+    renderSeriesToggles();
   }
 
   const fake = new Set(summary.badges.filter(b => b.startsWith('fake:')).map(b => b.split(':')[1]));
-  const rows = seriesEntries.map(([sm, series]) => {
+  const tableRows = seriesEntries.map(([sm, series]) => {
     const latest = series[series.length - 1];
-    const med = median(series.map(pt => pt[1]));
-    const badge = fake.has(sm) ? `<span class="badge fake" title="${t().fakeTitle}">${t().badgeFake}</span>` : '';
-    const offer = escapeHtml(latest[2] || '');
-    return `<tr><td>${storeLabel(sm)}</td><td class="num">$${latest[1].toFixed(2)}</td><td class="num">$${med.toFixed(2)}</td>` +
-      `<td class="promo" title="${offer}">${offer}</td><td>${badge}</td></tr>`;
-  }).join('');
-  document.getElementById('latestTable').innerHTML =
-    `<tr><th>${t().thChain}</th><th class="num">${t().thLatest}</th><th class="num">${t().thMedian}</th><th>${t().thOffer}</th><th></th></tr>` + rows;
+    return {
+      label: storeLabel(sm), latest: latest[1], median: median(series.map(pt => pt[1])),
+      offer: latest[2] || '', fake: fake.has(sm),
+    };
+  });
+  // cheapest latest price first — the same question the list row headline answers
+  let tableSort = { key: 'latest', dir: 'asc' };
+
+  function renderTable() {
+    const sorted = [...tableRows].sort(tableComparator(tableSort.key, tableSort.dir));
+    document.getElementById('latestTable').innerHTML =
+      `<caption class="sr-only">${t().tableCaption}</caption>` +
+      `<thead><tr>${SORT_COLS.map(col => sortableHeader(col, tableSort)).join('')}` +
+      `<th>${t().thOffer}</th><th></th></tr></thead><tbody>` +
+      sorted.map(r => {
+        const offer = escapeHtml(r.offer);
+        const badge = r.fake ? `<span class="badge fake" title="${t().fakeTitle}">${t().badgeFake}</span>` : '';
+        return `<tr><td>${r.label}</td><td class="num">$${r.latest.toFixed(2)}</td>` +
+          `<td class="num">$${r.median.toFixed(2)}</td>` +
+          `<td class="promo" title="${offer}">${offer}</td><td>${badge}</td></tr>`;
+      }).join('') +
+      `</tbody>`;
+    document.querySelectorAll('#latestTable .th-sort').forEach(btn => {
+      btn.onclick = () => {
+        const key = btn.dataset.key;
+        // same column again flips direction; a new column starts ascending
+        tableSort = { key, dir: tableSort.key === key && tableSort.dir === 'asc' ? 'desc' : 'asc' };
+        renderTable();
+        // rebuilding the header drops focus, so put it back on the clicked one
+        document.querySelector(`#latestTable .th-sort[data-key="${key}"]`)?.focus();
+      };
+    });
+  }
+  renderTable();
 
   // Sightings fetch after the chart/table are already rendered, so a slow
   // network doesn't hold up the parts of the page users came here for.
