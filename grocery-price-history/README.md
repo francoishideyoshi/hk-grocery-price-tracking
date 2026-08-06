@@ -42,7 +42,36 @@ deploy time).
   depend on a sliding 90-day window that shifts even without new data.
 - **`index.html`** — one file, vanilla JS, no build step. Fetches
   `index.json` for search/badges/drops; fetches `products/<code>.json` on
-  product click and renders a Chart.js stepped line per store.
+  product click and renders a Chart.js stepped line per store. Chart.js is
+  loaded on demand rather than from `<head>`, and the current view (filters +
+  selected product) is mirrored into the query string — see "UI notes".
+
+## UI notes
+
+Changes from the 2026-08-06 UI/UX review:
+
+- **Drops first.** "Biggest drops" renders above the products list — it is the
+  clearest demonstration of what this site does that the current prices sites
+  don't, and it was previously below a list that scrolls most of a viewport.
+- **Chart.js loads on demand.** ~250KB of Chart.js + date adapter used to block
+  first paint from `<head>`; `loadChartLib()` now fetches them when the first
+  product detail opens. If the CDN fails the price table still renders, only the
+  chart area shows an error.
+- **URL carries the view.** `?q=&cat=&stores=&sort=&lang=&p=` round-trips, so a
+  product link is shareable and a refresh keeps its filters. Filter changes
+  `replaceState`; opening a product `pushState`s, so Back closes the detail.
+- **Store colors are theme-aware.** All nine clear WCAG's 3:1 non-text contrast
+  floor in both themes. MANNINGS and SASA were darkened for light mode (they sat
+  at 2.70:1 and 2.87:1 on white); AEON, DCHFOOD and LUNGFUNG get lighter dark-mode
+  substitutes via `STORE_COLORS_DARK` (they sat at 2.25:1, 2.43:1 and 3.15:1 on
+  `#111418`).
+- **Social meta + favicon.** `description`, `og:*` and a data-URI SVG favicon.
+  No `og:image` yet — that needs a real PNG, since Facebook/WhatsApp won't render
+  an SVG card image.
+
+Known UI gaps not addressed in that pass: the products list still renders 200
+rows unvirtualized with no search debounce, sighting-form inputs are
+placeholder-only with no visible labels, and the auth modal has no focus trap.
 
 ## Raw archive storage
 
