@@ -1,9 +1,9 @@
 # HK Grocery Price Tracking
 
 Longitudinal price history per supermarket chain for 2,200+ products, sourced from the
-Consumer Council Online Price Watch and backfilled to 2020-05-30. Flags fake discounts
-(a promo tag on a price that's still &ge; its 90-day median) and surfaces the biggest
-real drops each day.
+Consumer Council Online Price Watch and backfilled to 2020-05-30. Flags promotions where
+the offer price is not below that item's own 90-day median at that chain, and surfaces
+the biggest real drops each day.
 
 **Live site:** https://francoishideyoshi.github.io/hk-grocery-price-tracking/
 

@@ -2,8 +2,8 @@
 
 Shows grocery price *history over time*, per supermarket, for products tracked by
 the Consumer Council's Online Price Watch — the full archive back to
-**2020-05-30**. Also flags "fake discounts" (promo tag but price never actually
-dropped below its own recent median) and lists biggest genuine price drops.
+**2020-05-30**. Also flags promotions where the offer price is not below that item's
+own 90-day median ("promo, not cheaper"), and lists the biggest real price drops.
 
 **Competitor gap:** Handy lah, PriceMonHK, and the OPW site itself all show
 current prices or today's sale flags only — none show longitudinal price
@@ -286,7 +286,7 @@ names/offers can contain commas, so parsing uses Python's `csv` module, not
 - Archive snapshots aren't daily — some days have no version (site wasn't
   scraped), so gaps exist in `raw/`'s date coverage. `meta.snapshot_count`
   in `index.json` reflects what's actually cached, not calendar days.
-- "Fake discount" and "biggest drop" badges use a 90-day sliding window,
+- "Promo, not cheaper" and "biggest drop" badges use a 90-day sliding window,
   reconstructed from each product's *sparse* series by carrying the last
   known price forward through the window (not a true daily average — a
   stdlib-only, close-enough approximation for a prototype).
