@@ -27,6 +27,8 @@
     --card-bg: #ffffff; --border: #e4e7eb; --hover-bg: #f1f3f5;
     --accent: #0f766e; --accent-bg-soft: #ccfbf1;
     --shadow: 0 1px 2px rgba(0,0,0,.05);
+    /* one curve for every UI transition — the built-in `ease` is too weak */
+    --ease-out: cubic-bezier(.23, 1, .32, 1);
     --green-bg: #dcfce7; --green-fg: #166534;
     --amber-bg: #fef3c7; --amber-fg: #92400e;
     --error-fg: #dc2626;
@@ -63,7 +65,9 @@
        line-height with it — without this they fall back to the UA default */
     line-height: 1.5;
   }
-  .chip:focus-visible, .item:focus-visible, input:focus-visible, select:focus-visible {
+  /* one ring for everything focusable — .star, .cat-row and the icon buttons are
+     spans/buttons that were falling back to the UA default ring */
+  :is(button, [role="button"], [tabindex="0"], input, select):focus-visible {
     outline: 2px solid var(--accent); outline-offset: 2px;
   }
   /* text for screen readers only — table captions and the detail-panel loading
@@ -75,6 +79,17 @@
   /* sized in em and stroked in currentColor, so an icon is the same weight and
      colour as the text it sits beside wherever it is dropped in (see ICONS) */
   .icon { width: 1em; height: 1em; flex-shrink: 0; vertical-align: -.125em; }
+
+  /* the chips and rows already scale on press; these did not, which made the
+     most-tapped controls (vote, star, report) feel dead */
+  .info-btn, .cat-clear, .collapse-btn, .modal-close, .th-sort, .link-btn,
+  .vote-btn, .report-btn, .star {
+    transition: transform 140ms var(--ease-out), background-color .15s var(--ease-out), color .15s var(--ease-out);
+  }
+  .info-btn:active, .cat-clear:active, .collapse-btn:active, .modal-close:active,
+  .th-sort:active, .link-btn:active, .vote-btn:active, .report-btn:active, .star:active {
+    transform: scale(.92);
+  }
 
   /* a flex row, not absolutely-positioned actions over a padded title: the
      buttons reserve their own width, so nothing has to guess a right gutter */
@@ -144,7 +159,9 @@
     min-width: 2.75rem; min-height: 2.75rem; border: none; background: none;
     color: var(--muted); font: inherit; cursor: pointer; border-radius: 50%; flex-shrink: 0;
   }
-  .info-btn:hover { background: var(--hover-bg); color: var(--fg); }
+  @media (hover: hover) and (pointer: fine) {
+    .info-btn:hover { background: var(--hover-bg); color: var(--fg); }
+  }
   .disclosure { color: var(--muted); font-size: var(--text-sm); margin: 0 0 .6rem; max-width: 62ch; }
   .disclosure[hidden] { display: none; }
 
@@ -167,16 +184,22 @@
     display: inline-flex; align-items: center; min-height: 2.75rem;
     border: 1px solid var(--border); background: var(--card-bg); color: var(--fg);
     border-radius: 999px; padding: .3rem .9rem; font: inherit; cursor: pointer;
-    transition: background-color .15s ease, border-color .15s ease, transform .1s ease;
+    transition: background-color .15s var(--ease-out), border-color .15s var(--ease-out), transform .1s var(--ease-out);
   }
   .chip[hidden] { display: none; }
-  .chip:hover { background: var(--hover-bg); }
+  @media (hover: hover) and (pointer: fine) {
+    .chip:hover { background: var(--hover-bg); }
+  }
   .chip:active { transform: scale(.97); }
   .chip[disabled] { opacity: .55; cursor: default; }
-  .chip[disabled]:hover { background: var(--card-bg); }
+  @media (hover: hover) and (pointer: fine) {
+    .chip[disabled]:hover { background: var(--card-bg); }
+  }
   .chip .count { color: var(--muted); margin-left: .25rem; font-size: var(--text-meta); }
   .chip.active { background: var(--accent); border-color: var(--accent); color: var(--bg); }
-  .chip.active:hover { background: var(--accent); }
+  @media (hover: hover) and (pointer: fine) {
+    .chip.active:hover { background: var(--accent); }
+  }
   .chip.active .count { color: inherit; opacity: .85; }
 
   .cat-picker { position: relative; display: inline-flex; align-items: center; gap: .4rem; }
@@ -185,7 +208,7 @@
   .cat-btn.active { background: var(--accent); border-color: var(--accent); color: var(--bg); }
   /* inline-flex so the svg inside it is centred and the rotation below spins
      around the glyph, not around a text baseline */
-  .cat-chevron { display: inline-flex; transition: transform .15s ease; }
+  .cat-chevron { display: inline-flex; transition: transform .15s var(--ease-out); }
   .cat-btn[aria-expanded="true"] .cat-chevron { transform: rotate(180deg); }
   .cat-clear {
     display: inline-flex; align-items: center; justify-content: center;
@@ -193,20 +216,31 @@
     color: var(--muted); font-size: var(--text-lg); line-height: 1; cursor: pointer;
     border-radius: 50%;
   }
-  .cat-clear:hover { background: var(--hover-bg); color: var(--fg); }
+  @media (hover: hover) and (pointer: fine) {
+    .cat-clear:hover { background: var(--hover-bg); color: var(--fg); }
+  }
   .cat-clear[hidden] { display: none; }
   .cat-menu {
     position: absolute; top: calc(100% + 6px); left: 0; z-index: 30;
     min-width: 300px; max-width: 380px; max-height: 360px; overflow-y: auto;
     background: var(--card-bg); border: 1px solid var(--border); border-radius: 12px;
     box-shadow: 0 8px 24px rgba(0,0,0,.12); padding: .25rem;
+    transform-origin: top left;
+    transition: opacity 150ms var(--ease-out), transform 150ms var(--ease-out),
+                display 150ms allow-discrete;
   }
-  .cat-menu[hidden] { display: none; }
+  /* opacity/transform live on the hidden state too, so the menu animates out as
+     well as in — `display ... allow-discrete` is what keeps it rendered for
+     those 150ms, and pointer-events keeps it from eating clicks on the way out */
+  .cat-menu[hidden] { display: none; opacity: 0; transform: scale(.97); pointer-events: none; }
+  @starting-style { .cat-menu:not([hidden]) { opacity: 0; transform: scale(.97); } }
   .cat-row {
     display: flex; justify-content: space-between; align-items: center; gap: .5rem;
     min-height: 2.75rem; padding: .45rem .6rem; border-radius: 8px; cursor: pointer; font-size: var(--text-sm);
   }
-  .cat-row:hover { background: var(--hover-bg); }
+  @media (hover: hover) and (pointer: fine) {
+    .cat-row:hover { background: var(--hover-bg); }
+  }
   .cat-row:active { background: var(--hover-bg); }
   /* the back arrow and its label are two flex items, so the row's default
      space-between would fling them to opposite edges */
@@ -234,10 +268,12 @@
     display: block; width: 100%; min-height: 2.75rem; text-align: left; padding: .6rem .7rem;
     border: 1px solid var(--border); border-radius: 10px; background: var(--card-bg);
     box-shadow: var(--shadow); cursor: pointer; font: inherit; color: var(--fg);
-    transition: background-color .15s ease, border-color .15s ease, box-shadow .15s ease, transform .1s ease;
+    transition: background-color .15s var(--ease-out), border-color .15s var(--ease-out), box-shadow .15s var(--ease-out), transform .1s var(--ease-out);
     flex-shrink: 0;
   }
-  .item:hover { background: var(--hover-bg); border-color: var(--muted); box-shadow: 0 2px 8px rgba(0,0,0,.08); }
+  @media (hover: hover) and (pointer: fine) {
+    .item:hover { background: var(--hover-bg); border-color: var(--muted); box-shadow: 0 2px 8px rgba(0,0,0,.08); }
+  }
   .item:active { transform: scale(.99); }
   .item.selected { border-color: var(--accent); background: var(--accent-bg-soft); }
   .item-row { display: flex; justify-content: space-between; align-items: flex-start; gap: .5rem; }
@@ -273,7 +309,9 @@
     min-width: 2.75rem; min-height: 2.75rem; border: none; background: none;
     color: var(--muted); cursor: pointer; border-radius: 8px; flex-shrink: 0;
   }
-  .collapse-btn:hover { background: var(--hover-bg); color: var(--fg); }
+  @media (hover: hover) and (pointer: fine) {
+    .collapse-btn:hover { background: var(--hover-bg); color: var(--fg); }
+  }
   .collapse-btn[aria-expanded="false"] .cat-chevron { transform: rotate(-90deg); }
   #productsCard.collapsed .result-count,
   #productsCard.collapsed #results,
@@ -323,7 +361,11 @@
   .item-detail {
     border: 1px solid var(--accent); border-radius: 10px; background: var(--card-bg);
     padding: .75rem; box-shadow: var(--shadow);
+    transition: opacity 200ms var(--ease-out), transform 200ms var(--ease-out);
   }
+  /* the panel is inserted straight into the list, so without this ~480px of
+     content teleports in and shoves the rows below it */
+  @starting-style { .item-detail { opacity: 0; transform: translateY(-6px); } }
 
   .detail { min-height: 480px; }
   .detail-head { display: flex; align-items: flex-start; gap: .6rem; }
@@ -360,10 +402,14 @@
     min-height: 2.75rem; padding: 0; border: none; background: none;
     color: inherit; font: inherit; cursor: pointer;
   }
-  .th-sort:hover { color: var(--fg); }
+  @media (hover: hover) and (pointer: fine) {
+    .th-sort:hover { color: var(--fg); }
+  }
   th.num .th-sort { justify-content: flex-end; }
   td { padding: .5rem; border-bottom: 1px solid var(--border); }
-  tbody tr:hover td { background: var(--hover-bg); }
+  @media (hover: hover) and (pointer: fine) {
+    tbody tr:hover td { background: var(--hover-bg); }
+  }
   th.num, td.num { text-align: right; font-variant-numeric: tabular-nums; }
   td.promo { max-width: 140px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
@@ -398,7 +444,9 @@
     min-width: 2.75rem; min-height: 2.75rem; border: none; background: none;
     color: var(--muted); cursor: pointer; border-radius: 50%; font: inherit;
   }
-  .vote-btn:hover, .report-btn:hover { background: var(--hover-bg); }
+  @media (hover: hover) and (pointer: fine) {
+    .vote-btn:hover, .report-btn:hover { background: var(--hover-bg); }
+  }
   .vote-btn.active { color: var(--accent); }
   .report-btn.active { color: var(--error-fg); }
   .vote-score { min-width: 1.4rem; text-align: center; font-size: var(--text-sm); font-weight: 600; }
@@ -435,7 +483,10 @@
     background: var(--card-bg); color: var(--fg);
   }
   .ac-item { padding: .5rem .75rem; cursor: pointer; }
-  .ac-item:hover, .ac-item.active { background: var(--hover-bg); }
+  .ac-item.active { background: var(--hover-bg); }
+  @media (hover: hover) and (pointer: fine) {
+    .ac-item:hover { background: var(--hover-bg); }
+  }
   .ac-sub { color: var(--muted); font-size: var(--text-sm); }
 
   @media (max-width: 640px) {
@@ -463,22 +514,31 @@
     border: none; background: none; color: var(--muted); font: inherit;
     text-decoration: underline; cursor: pointer; padding: .5rem; min-height: 2.75rem;
   }
-  .link-btn:hover { color: var(--fg); }
+  @media (hover: hover) and (pointer: fine) {
+    .link-btn:hover { color: var(--fg); }
+  }
 
   .star {
     display: inline-flex; align-items: center; justify-content: center;
     min-width: 2.75rem; min-height: 2.75rem; border-radius: 50%;
     cursor: pointer; margin-left: .2rem; color: var(--muted); user-select: none;
   }
-  .star:hover { background: var(--hover-bg); }
+  @media (hover: hover) and (pointer: fine) {
+    .star:hover { background: var(--hover-bg); }
+  }
   .star.tracked { color: var(--accent); }
 
   .modal-overlay {
     position: fixed; inset: 0; z-index: 50; background: rgba(0,0,0,.4);
     display: flex; align-items: center; justify-content: center; padding: 1rem;
+    transition: opacity 150ms var(--ease-out), display 150ms allow-discrete;
   }
-  .modal-overlay[hidden] { display: none; }
+  .modal-overlay[hidden] { display: none; opacity: 0; }
+  @starting-style { .modal-overlay:not([hidden]) { opacity: 0; } }
   .modal-card { width: 100%; max-width: 340px; }
+  /* a modal is not anchored to a trigger, so it scales from its own centre */
+  .modal-card { transition: transform 200ms var(--ease-out); }
+  @starting-style { .modal-overlay:not([hidden]) .modal-card { transform: scale(.97); } }
   .modal-card h2 { margin: 0; font-size: var(--text-md); }
   /* the × sits beside the title so the dialog has a dismissal affordance that
      is visible before you reach the Cancel button at the bottom */
@@ -489,7 +549,9 @@
     border: none; background: none; color: var(--muted); cursor: pointer;
     border-radius: 50%; font: inherit; font-size: var(--text-lg); line-height: 1;
   }
-  .modal-close:hover { background: var(--hover-bg); }
+  @media (hover: hover) and (pointer: fine) {
+    .modal-close:hover { background: var(--hover-bg); }
+  }
   /* the wrap takes over the input's own bottom margin so the row spaces like a
      plain input does */
   .pw-wrap { display: flex; align-items: center; gap: .25rem; margin-bottom: .5rem; }
@@ -506,9 +568,26 @@
   .oauth-buttons { display: flex; flex-direction: column; gap: .5rem; margin-bottom: .75rem; }
   .oauth-btn { width: 100%; justify-content: center; font-weight: 500; }
   .oauth-apple { background: #000; border-color: #000; color: #fff; }
-  .oauth-apple:hover { background: #1a1a1a; }
+  @media (hover: hover) and (pointer: fine) {
+    .oauth-apple:hover { background: #1a1a1a; }
+  }
   .auth-divider { display: flex; align-items: center; gap: .6rem; margin: 0 0 .75rem; color: var(--muted); font-size: var(--text-sm); }
   .auth-divider::before, .auth-divider::after { content: ''; flex: 1; border-top: 1px solid var(--border); }
+
+  /* the block above covers the pre-existing transitions; these are the ones added
+     with the entrance work, and they must be overridden after their own rules */
+  @media (prefers-reduced-motion: reduce) {
+    .info-btn, .cat-clear, .collapse-btn, .modal-close, .th-sort, .link-btn,
+    .vote-btn, .report-btn, .star { transition: none; }
+    .info-btn:active, .cat-clear:active, .collapse-btn:active, .modal-close:active,
+    .th-sort:active, .link-btn:active, .vote-btn:active, .report-btn:active,
+    .star:active { transform: none; }
+    /* keep the opacity fades — they aid comprehension — and drop the movement */
+    .cat-menu { transition: opacity 120ms linear, display 120ms allow-discrete; }
+    .cat-menu, .cat-menu[hidden] { transform: none; }
+    .modal-overlay { transition: opacity 120ms linear, display 120ms allow-discrete; }
+    .modal-card, .item-detail { transition: opacity 120ms linear; transform: none; }
+  }
 </style>
 </head>
 <body>
