@@ -562,6 +562,13 @@
     font-size: var(--text-base); border: 1px solid var(--border); border-radius: 8px;
     background: var(--bg); color: var(--fg);
   }
+  /* the rule above would stretch a checkbox full-width like a text field — the
+     toggle row opts back out of it */
+  .modal-card input[type=checkbox] { width: auto; margin: 0; padding: 0; border: none; background: none; }
+  /* the 14px box is a poor tap target; the whole row takes the site-wide
+     2.75rem floor instead, and the row is a label for the box so it keeps
+     its keyboard/screen-reader behaviour */
+  .alert-row { display: flex; align-items: center; gap: .4rem; min-height: 2.75rem; cursor: pointer; }
   .modal-actions { display: flex; gap: .5rem; flex-wrap: wrap; margin-top: .5rem; }
   .auth-error { color: var(--error-fg); font-size: var(--text-sm); margin-bottom: .5rem; }
   .auth-note { color: var(--accent); font-size: var(--text-sm); margin-bottom: .5rem; }
@@ -781,6 +788,8 @@ const T = {
     rangeLabels: { '3M': '3M', '1Y': '1Y', '3Y': '3Y', All: 'All' },
     account: 'Account', login: 'Log in', signUp: 'Sign up', logout: 'Log out',
     email: 'Email', password: 'Password', cancel: 'Cancel',
+    emailAlerts: 'Email price alerts',
+    emailAlertsHint: 'Get an email when a tracked item\'s price or promotion changes.',
     myTracker: 'My tracker', track: 'Track', untrack: 'Untrack',
     noTracked: 'No tracked products yet',
     confirmSent: 'Confirmation email sent',
@@ -874,6 +883,8 @@ const T = {
     rangeLabels: { '3M': '3個月', '1Y': '1年', '3Y': '3年', All: '全部' },
     account: '帳戶', login: '登入', signUp: '註冊', logout: '登出',
     email: '電郵', password: '密碼', cancel: '取消',
+    emailAlerts: '價格變動電郵通知',
+    emailAlertsHint: '追蹤商品價格或優惠有變時，以電郵通知你。',
     myTracker: '我的追蹤', track: '追蹤', untrack: '取消追蹤',
     noTracked: '尚未追蹤任何產品',
     confirmSent: '已發送確認電郵',
@@ -1338,9 +1349,9 @@ function closeAuthModal() {
 // Both modals reuse this shell, so the dialog semantics, the labelled heading,
 // the × and the focus trap are written once. Tab off either end of the control
 // list wraps to the other end, so the keyboard cannot reach the page behind.
-// ponytail: the trap lists `button, input` and skips visibility/disabled
-// filtering — nothing in either modal is ever hidden or disabled. Add a filter
-// the day one of them gains a conditional control.
+// ponytail: the trap lists `button, input` with disabled ones filtered out —
+// a disabled element can't take focus, so wrapping to it would dead-end the tab
+// order. Visibility is not filtered: nothing hidden ever matches the selector.
 function showAuthModal(title, bodyHTML) {
   const overlay = document.getElementById('authModal');
   overlay.innerHTML =
@@ -1356,7 +1367,7 @@ function showAuthModal(title, bodyHTML) {
   // Tab only; Escape keeps bubbling to the document handler that closes us.
   overlay.onkeydown = e => {
     if (e.key !== 'Tab') return;
-    const items = overlay.querySelectorAll('button, input');
+    const items = [...overlay.querySelectorAll('button, input')].filter(el => !el.disabled);
     if (!items.length) return;
     const edge = e.shiftKey ? items[0] : items[items.length - 1];
     if (document.activeElement !== edge) return;
@@ -1475,6 +1486,13 @@ function openAccountModal() {
   modalOpener = document.activeElement;
   showAuthModal(t().account,
     `<p class="item-sub" id="accountEmail"></p>` +
+    `<div class="field">` +
+    `<label class="field-label" for="alertEmail">${t().emailAlerts}</label>` +
+    `<label class="alert-row" for="alertEmail">` +
+    `<input type="checkbox" id="alertEmail" disabled>` +
+    `<span class="item-sub">${t().emailAlertsHint}</span>` +
+    `</label></div>` +
+    `<div class="auth-error" id="authError" role="alert" hidden></div>` +
     `<div class="modal-actions">` +
     `<button type="button" class="chip" id="logoutBtn">${t().logout}</button>` +
     `<button type="button" class="chip" id="authCancel">${t().cancel}</button>` +
@@ -1484,6 +1502,32 @@ function openAccountModal() {
   document.getElementById('logoutBtn').onclick = async () => {
     await sb.auth.signOut();
     closeAuthModal();
+  };
+  loadAlertPref();
+}
+
+// No row in alert_prefs means alerts are ON by default; a row's email_enabled
+// is the opt-out. The box stays disabled until its value arrives so a user
+// can't flip a state that hasn't loaded.
+async function loadAlertPref() {
+  const box = document.getElementById('alertEmail');
+  const { data, error } = await sb.from('alert_prefs')
+    .select('email_enabled').eq('user_id', session.user.id).maybeSingle();
+  if (!box.isConnected) return; // modal closed while the pref was still loading
+  box.checked = !error && data ? data.email_enabled : true;
+  box.disabled = false;
+  box.onchange = async () => {
+    const wanted = box.checked;
+    const errEl = document.getElementById('authError');
+    errEl.hidden = true;
+    const { error: saveErr } = await sb.from('alert_prefs')
+      .upsert({ user_id: session.user.id, email_enabled: box.checked, updated_at: new Date().toISOString() },
+        { onConflict: 'user_id' });
+    if (saveErr) {
+      box.checked = !wanted;
+      errEl.textContent = authErrorText(saveErr.message);
+      errEl.hidden = false;
+    }
   };
 }
 

@@ -22,10 +22,27 @@ jobs:
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
+    env:
+      # Exposed at job level so the send step's `if:` can test them: secrets
+      # cannot be referenced directly in an `if:` conditional.
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+      ALERT_FROM: ${{ secrets.ALERT_FROM }}
+      SITE_URL: ${{ secrets.SITE_URL }}
     steps:
       - uses: actions/checkout@v4
 
       - run: python3 grocery-price-history/backfill.py --update
+
+      - name: Claim daily alert window
+        # Claims the day in alert_state.json BEFORE any email is sent: if the
+        # commit/push below fails, the job aborts here with nothing emailed,
+        # so a re-run can't blast every user twice. The claim sets
+        # pending_until but leaves last_sent_date untouched, so a day that was
+        # claimed and never sent stays inside the next window and still fires.
+        # No secrets needed — it only touches alert_state.json.
+        run: python3 grocery-price-history/alerts.py --claim
 
       - name: Commit new snapshots + site data
         run: |
@@ -33,7 +50,28 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add raw/ products.json names_tc.json images.json
+          # alert_state.json, written by the claim step above unless the day
+          # was already pending, reaches origin before any email is sent.
+          git add alert_state.json 2>/dev/null || true
           git diff --cached --quiet || git commit -m "raw: daily price snapshot [skip ci]"
+          git pull --rebase origin main
+          git push
+
+      - name: Send daily price alerts
+        # Only runs when the alert secrets are configured: a successful send
+        # rewrites alert_state.json to just {"last_sent_date": ...} and that
+        # cleanup is committed right after, so a re-run finds nothing pending.
+        # A claimed-but-unsent day keeps its pending_until, so tomorrow's
+        # window still covers it. Remaining exposure: a crash between the send
+        # loop and this push.
+        if: ${{ env.RESEND_API_KEY != '' }}
+        run: |
+          python3 grocery-price-history/alerts.py --send
+          cd grocery-price-history
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add alert_state.json 2>/dev/null || true
+          git diff --cached --quiet || git commit -m "alerts: clear pending window [skip ci]"
           git pull --rebase origin main
           git push
 

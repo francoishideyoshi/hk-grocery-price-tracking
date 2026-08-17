@@ -17,7 +17,9 @@ https://francoishideyoshi.github.io/hk-grocery-price-tracking/
 Updated daily by `.github/workflows/daily-prices.yml`: fetches any new
 snapshot, commits it to `raw/`, merges the change into `products.json`, and
 redeploys to GitHub Pages (generating `products/*.json` + `index.json` at
-deploy time).
+deploy time). The same run fires `alerts.py`, which emails a daily digest to
+anyone who starred a product with a price or promo change (setup:
+`SETUP-ALERTS.md`).
 
 ## Architecture
 
